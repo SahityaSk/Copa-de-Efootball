@@ -262,3 +262,127 @@ function checkGroupStageCompletion(state) {
     state.status = 'group-stage';
   }
 }
+
+// Simulate a single match with realistic scoring/events
+export function simulateMatch(state, match) {
+  const homeTeam = state.teams.find(t => t.id === match.homeTeamId);
+  const awayTeam = state.teams.find(t => t.id === match.awayTeamId);
+  
+  if (!homeTeam || !awayTeam) return;
+
+  const homePower = homeTeam.squad ? homeTeam.squad.reduce((s, p) => s + p.rating, 0) / homeTeam.squad.length : 80;
+  const awayPower = awayTeam.squad ? awayTeam.squad.reduce((s, p) => s + p.rating, 0) / awayTeam.squad.length : 80;
+  
+  const lambdaHome = Math.max(0.5, 1.5 + (homePower - awayPower) / 10);
+  const lambdaAway = Math.max(0.5, 1.5 + (awayPower - homePower) / 10);
+  
+  const simulatePoisson = (lambda) => {
+    let L = Math.exp(-lambda), k = 0, p = 1;
+    do { k++; p *= Math.random(); } while (p > L);
+    return k - 1;
+  };
+
+  let homeScore = simulatePoisson(lambdaHome);
+  let awayScore = simulatePoisson(lambdaAway);
+
+  const timelineEvents = [];
+  const homePlayers = homeTeam.squad || [];
+  const awayPlayers = awayTeam.squad || [];
+
+  const addGoalsForTeam = (teamId, score, players) => {
+    for (let i = 0; i < score; i++) {
+      const min = Math.floor(Math.random() * 90) + 1;
+      const scorers = players.filter(p => p.position !== 'GK');
+      const scorer = scorers[Math.floor(Math.random() * scorers.length)] || players[0];
+      const event = {
+        minute: min,
+        type: 'goal',
+        teamId: teamId,
+        playerName: scorer.name
+      };
+      
+      if (Math.random() < 0.7) {
+        const assisters = scorers.filter(p => p.id !== scorer.id);
+        const assister = assisters[Math.floor(Math.random() * assisters.length)];
+        if (assister) {
+          event.detail = `Assist: ${assister.name}`;
+        }
+      }
+      timelineEvents.push(event);
+    }
+  };
+
+  addGoalsForTeam(homeTeam.id, homeScore, homePlayers);
+  addGoalsForTeam(awayTeam.id, awayScore, awayPlayers);
+
+  [homeTeam, awayTeam].forEach(team => {
+    const players = team.squad || [];
+    if (Math.random() < 0.15) {
+      const min = Math.floor(Math.random() * 90) + 1;
+      const cardType = Math.random() < 0.9 ? 'yellow_card' : 'red_card';
+      const player = players[Math.floor(Math.random() * players.length)];
+      timelineEvents.push({
+        minute: min,
+        type: cardType,
+        teamId: team.id,
+        playerName: player.name
+      });
+    }
+  });
+
+  timelineEvents.sort((a, b) => a.minute - b.minute);
+
+  let homePenalties = null;
+  let awayPenalties = null;
+
+  if (match.type === 'knockout' && homeScore === awayScore) {
+    const pHome = 3 + Math.floor(Math.random() * 3);
+    const pAway = pHome === 5 ? 4 : (Math.random() < 0.5 ? pHome + 1 : pHome - 1);
+    homePenalties = pHome;
+    awayPenalties = pAway;
+  }
+
+  const referee = match.referee || 'Szymon Marciniak (Poland)';
+  const allPlayers = [...homePlayers, ...awayPlayers];
+  const potm = allPlayers[Math.floor(Math.random() * allPlayers.length)]?.name || 'Unknown';
+
+  enterMatchResult(
+    state,
+    match.id,
+    homeScore,
+    awayScore,
+    timelineEvents,
+    referee,
+    potm,
+    homePenalties,
+    awayPenalties
+  );
+}
+
+// Simulate all remaining group matches
+export function simulateAllGroupMatches(state) {
+  const groupMatches = state.matches.filter(m => m.type === 'group' && m.status !== 'completed');
+  groupMatches.forEach(m => {
+    simulateMatch(state, m);
+  });
+  saveState(state);
+}
+
+// Simulate all remaining knockout matches round by round
+export function simulateAllKnockoutMatches(state) {
+  for (let iter = 0; iter < 10; iter++) {
+    const nextMatches = state.matches.filter(m => 
+      m.type === 'knockout' && 
+      m.status === 'scheduled' && 
+      m.homeTeamId && !m.homeTeamId.startsWith('Winner') && !m.homeTeamId.startsWith('Loser') &&
+      m.awayTeamId && !m.awayTeamId.startsWith('Winner') && !m.awayTeamId.startsWith('Loser')
+    );
+
+    if (nextMatches.length === 0) break;
+
+    nextMatches.forEach(m => {
+      simulateMatch(state, m);
+    });
+  }
+  saveState(state);
+}

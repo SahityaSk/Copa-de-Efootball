@@ -10,12 +10,21 @@ export class Router {
 
   init() {
     window.addEventListener('hashchange', () => this.handleRouting());
-    // Initial routing on page load
-    document.addEventListener('DOMContentLoaded', () => this.handleRouting());
+    
+    // Initial routing on page load: check if DOM is already parsed to avoid race conditions
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      this.handleRouting();
+    } else {
+      document.addEventListener('DOMContentLoaded', () => this.handleRouting());
+    }
   }
 
   handleRouting() {
-    const fullHash = window.location.hash || '#dashboard';
+    if (!window.location.hash) {
+      window.location.hash = '#dashboard';
+      return;
+    }
+    const fullHash = window.location.hash;
     const [routePath, queryStr] = fullHash.split('?');
     
     // Parse query parameters

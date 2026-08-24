@@ -4,7 +4,7 @@ import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig
 import { Router } from './router.js';
 import { GroupDrawManager } from './draw.js';
 import { generateGroupMatches, generateKnockoutMatches } from './scheduler.js';
-import { resetTournament, hardResetTournament, clearAllTeams, enterMatchResult, editMatchSchedule, addCustomTeam, removeTeamFromState } from './admin.js';
+import { resetTournament, hardResetTournament, clearAllTeams, enterMatchResult, editMatchSchedule, addCustomTeam, removeTeamFromState, simulateAllGroupMatches, simulateAllKnockoutMatches } from './admin.js';
 
 // Setup Toast Notification system
 export function showToast(message, type = 'success') {
@@ -169,7 +169,7 @@ function renderDashboard() {
     <!-- Hero Banner -->
     <div class="glass-card" style="position:relative; text-align:center; padding: 48px 24px; background: linear-gradient(135deg, rgba(5,7,15,0.9), rgba(22,27,51,0.7)); overflow:hidden; border-bottom: 2px solid var(--accent-emerald);">
       <div style="position:absolute; top:-20%; left:-10%; width:300px; height:300px; background:radial-gradient(circle, rgba(0, 230, 118, 0.08) 0%, transparent 60%); pointer-events:none;"></div>
-      <h2 style="font-family:var(--font-display); font-size: 2.2rem; letter-spacing:2px; text-transform:uppercase; margin-bottom: 8px;">🏆 eFootball World Cup 2026</h2>
+      <h2 style="font-family:var(--font-display); font-size: 2.2rem; letter-spacing:2px; text-transform:uppercase; margin-bottom: 8px;">🏆 Copa de eFootball 2026</h2>
       <p style="color:var(--accent-gold); font-family:var(--font-display); letter-spacing:4px; font-weight:700; font-size:1rem; text-transform:uppercase; margin-bottom: 20px;">Road to Glory</p>
       
       <!-- Countdown Widget -->
@@ -1123,22 +1123,35 @@ function renderKnockout() {
   const state = getState();
   const container = document.getElementById('knockout-section');
 
-  if (state.status === 'pre-draw' || state.status === 'drawing' || state.status === 'draw-completed' || state.status === 'fixtures-generated' || state.status === 'group-stage') {
-    container.innerHTML = `
-      <div class="glass-card" style="text-align:center; padding: 48px 24px;">
-        <i data-lucide="award" style="width:48px; height:48px; color:var(--accent-gold); margin-bottom:16px;"></i>
-        <h2>Knockout Stage Bracket</h2>
-        <p style="color:var(--color-text-secondary); margin: 12px 0 20px 0;">The interactive bracket will unlock once all 48 group-stage matches are played and qualified teams are locked in.</p>
-        <a href="#fixtures" class="btn-primary">View Group Calendar</a>
-      </div>
-    `;
-    lucide.createIcons();
-    return;
+  const isPreview = state.status !== 'knockouts' && state.status !== 'finished';
+  
+  let displayMatches = state.matches;
+  if (isPreview) {
+    displayMatches = [
+      { id: 'M49', homeTeamId: 'Group A Winner', awayTeamId: 'Group B Runner-up', status: 'scheduled', time: '14:00' },
+      { id: 'M50', homeTeamId: 'Group C Winner', awayTeamId: 'Group D Runner-up', status: 'scheduled', time: '17:00' },
+      { id: 'M51', homeTeamId: 'Group E Winner', awayTeamId: 'Group F Runner-up', status: 'scheduled', time: '20:00' },
+      { id: 'M52', homeTeamId: 'Group G Winner', awayTeamId: 'Group H Runner-up', status: 'scheduled', time: '23:00' },
+      { id: 'M53', homeTeamId: 'Group B Winner', awayTeamId: 'Group A Runner-up', status: 'scheduled', time: '14:00' },
+      { id: 'M54', homeTeamId: 'Group D Winner', awayTeamId: 'Group C Runner-up', status: 'scheduled', time: '17:00' },
+      { id: 'M55', homeTeamId: 'Group F Winner', awayTeamId: 'Group E Runner-up', status: 'scheduled', time: '20:00' },
+      { id: 'M56', homeTeamId: 'Group H Winner', awayTeamId: 'Group G Runner-up', status: 'scheduled', time: '23:00' },
+      
+      { id: 'M57', homeTeamId: 'Winner Match 49', awayTeamId: 'Winner Match 50', status: 'scheduled', time: '16:00' },
+      { id: 'M58', homeTeamId: 'Winner Match 51', awayTeamId: 'Winner Match 52', status: 'scheduled', time: '21:00' },
+      { id: 'M59', homeTeamId: 'Winner Match 53', awayTeamId: 'Winner Match 54', status: 'scheduled', time: '16:00' },
+      { id: 'M60', homeTeamId: 'Winner Match 55', awayTeamId: 'Winner Match 56', status: 'scheduled', time: '21:00' },
+      
+      { id: 'M61', homeTeamId: 'Winner Match 57', awayTeamId: 'Winner Match 58', status: 'scheduled', time: '16:00' },
+      { id: 'M62', homeTeamId: 'Winner Match 59', awayTeamId: 'Winner Match 60', status: 'scheduled', time: '21:00' },
+      
+      { id: 'M63', homeTeamId: 'Loser Match 61', awayTeamId: 'Loser Match 62', status: 'scheduled', time: '18:00' },
+      { id: 'M64', homeTeamId: 'Winner Match 61', awayTeamId: 'Winner Match 62', status: 'scheduled', time: '21:00' }
+    ];
   }
 
-  // Knockout match list mapping helper
   function getKnockoutCard(matchId) {
-    const m = state.matches.find(match => match.id === matchId);
+    const m = displayMatches.find(match => match.id === matchId);
     if (!m) return '';
 
     const homeTeam = state.teams.find(t => t.id === m.homeTeamId);
@@ -1146,18 +1159,17 @@ function renderKnockout() {
 
     const hName = homeTeam ? homeTeam.name : m.homeTeamId;
     const aName = awayTeam ? awayTeam.name : m.awayTeamId;
-    const hFlag = homeTeam ? homeTeam.flag : '';
-    const aFlag = awayTeam ? awayTeam.flag : '';
+    const hFlag = homeTeam ? homeTeam.flag : '🏳️';
+    const aFlag = awayTeam ? awayTeam.flag : '🏳️';
 
     const isDone = m.status === 'completed';
     const isTied = isDone && m.homeScore === m.awayScore;
     
-    // Check winner styling
     const homeIsWinner = isDone && (m.homeScore > m.awayScore || (isTied && m.homePenalties > m.awayPenalties));
-    const awayIsWinner = isDone && (m.awayScore > m.homeScore || (isTied && m.awayPenalties > m.homePenalties));
+    const awayIsWinner = isDone && (m.awayScore > m.homeScore || (isTied && m.awayPenalties > m.awayPenalties));
 
     return `
-      <div class="bracket-match">
+      <div class="bracket-match" data-match-id="${m.id}" style="${isPreview ? 'opacity: 0.8; border-style: dashed;' : ''}">
         <!-- Match Id / Info -->
         <div style="font-size:0.65rem; background:rgba(255,255,255,0.03); padding:4px 10px; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; color:var(--color-text-secondary);">
           <span>MATCH #${m.id.replace('M','')}</span>
@@ -1168,7 +1180,7 @@ function renderKnockout() {
         <div class="bracket-team-row ${homeIsWinner ? 'winner' : ''}">
           <span style="display:flex; align-items:center; gap:6px;">
             <span>${hFlag}</span>
-            <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px;">${hName}</span>
+            <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!homeTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${hName}</span>
           </span>
           <span class="bracket-score">
             ${isDone ? m.homeScore : ''}
@@ -1180,7 +1192,7 @@ function renderKnockout() {
         <div class="bracket-team-row ${awayIsWinner ? 'winner' : ''}" style="border:none;">
           <span style="display:flex; align-items:center; gap:6px;">
             <span>${aFlag}</span>
-            <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px;">${aName}</span>
+            <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!awayTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${aName}</span>
           </span>
           <span class="bracket-score">
             ${isDone ? m.awayScore : ''}
@@ -1188,25 +1200,29 @@ function renderKnockout() {
           </span>
         </div>
 
-        <!-- Links -->
-        <div style="display:flex; justify-content:space-between; font-size:0.7rem; border-top:1px solid rgba(255,255,255,0.02); padding: 4px 10px; background:rgba(0,0,0,0.1);">
-          <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald);">Details</a>
-          <a href="#admin?match=${m.id}" style="color:var(--accent-gold);">Result</a>
-        </div>
+        ${!isPreview ? `
+          <!-- Links -->
+          <div style="display:flex; justify-content:space-between; font-size:0.7rem; border-top:1px solid rgba(255,255,255,0.02); padding: 4px 10px; background:rgba(0,0,0,0.1);">
+            <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald);">Details</a>
+            <a href="#admin?match=${m.id}" style="color:var(--accent-gold);">Result</a>
+          </div>
+        ` : ''}
       </div>
     `;
   }
 
   container.innerHTML = `
-    <h2 style="margin-bottom:20px; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
+    <h2 style="margin-bottom:8px; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
       <i data-lucide="award" style="color:var(--accent-emerald);"></i> Interactive Knockout Bracket
     </h2>
-    <p style="color:var(--color-text-secondary); margin-bottom:24px; font-size:0.9rem;">Scroll horizontally to explore the tournament tree from the Round of 16 to the Grand Final. Winners progress automatically.</p>
+    <p style="color:var(--color-text-secondary); margin-bottom:24px; font-size:0.9rem;">
+      ${isPreview ? '⚠️ Preview Mode: Tournament tree is currently locked. Group stage results will populate the seeding.' : 'Scroll horizontally to explore the tournament tree from the Round of 16 to the Grand Final. Winners progress automatically.'}
+    </p>
     
     <div class="bracket-wrapper glass-card">
-      <div class="bracket-container">
+      <div class="bracket-container" style="position:relative;">
         
-        <!-- Round of 16 (8 matches: M49 to M56) -->
+        <!-- Round of 16 (8 matches) -->
         <div class="bracket-round">
           <h4 style="text-align:center; color:var(--accent-gold); font-family:var(--font-display); font-size:0.8rem; text-transform:uppercase; margin-bottom:12px;">Round of 16</h4>
           ${getKnockoutCard('M49')}
@@ -1219,7 +1235,7 @@ function renderKnockout() {
           ${getKnockoutCard('M56')}
         </div>
 
-        <!-- Quarter-Finals (4 matches: M57 to M60) -->
+        <!-- Quarter-Finals -->
         <div class="bracket-round">
           <h4 style="text-align:center; color:var(--accent-gold); font-family:var(--font-display); font-size:0.8rem; text-transform:uppercase; margin-bottom:12px;">Quarter-Finals</h4>
           ${getKnockoutCard('M57')}
@@ -1231,7 +1247,7 @@ function renderKnockout() {
           ${getKnockoutCard('M60')}
         </div>
 
-        <!-- Semi-Finals (2 matches: M61 and M62) -->
+        <!-- Semi-Finals -->
         <div class="bracket-round">
           <h4 style="text-align:center; color:var(--accent-gold); font-family:var(--font-display); font-size:0.8rem; text-transform:uppercase; margin-bottom:12px;">Semi-Finals</h4>
           ${getKnockoutCard('M61')}
@@ -1239,7 +1255,7 @@ function renderKnockout() {
           ${getKnockoutCard('M62')}
         </div>
 
-        <!-- Finals & Third Place (M63 and M64) -->
+        <!-- Finals & Third Place -->
         <div class="bracket-round" style="justify-content:center; gap:40px;">
           <div>
             <h4 style="text-align:center; color:var(--accent-red); font-family:var(--font-display); font-size:0.8rem; text-transform:uppercase; margin-bottom:8px;">3rd Place Playoff</h4>
@@ -1255,7 +1271,75 @@ function renderKnockout() {
     </div>
   `;
 
+  // Draw lines with a slight timeout to let DOM dimensions resolve
+  setTimeout(() => {
+    drawBracketLines();
+  }, 100);
+
+  // Resize listener
+  window.removeEventListener('resize', window._onBracketResize);
+  window._onBracketResize = () => drawBracketLines();
+  window.addEventListener('resize', window._onBracketResize);
+
   lucide.createIcons();
+}
+
+function drawBracketLines() {
+  const container = document.querySelector('.bracket-container');
+  if (!container) return;
+
+  // Remove existing SVG
+  const existingSvg = container.querySelector('.bracket-svg');
+  if (existingSvg) existingSvg.remove();
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'bracket-svg');
+  svg.style.position = 'absolute';
+  svg.style.top = '0';
+  svg.style.left = '0';
+  svg.style.width = '100%';
+  svg.style.height = '100%';
+  svg.style.pointerEvents = 'none';
+  svg.style.zIndex = '0'; // Behind cards
+  container.appendChild(svg);
+
+  const containerRect = container.getBoundingClientRect();
+
+  const connections = [
+    { sources: ['M49', 'M50'], target: 'M57' },
+    { sources: ['M51', 'M52'], target: 'M58' },
+    { sources: ['M53', 'M54'], target: 'M59' },
+    { sources: ['M55', 'M56'], target: 'M60' },
+    { sources: ['M57', 'M58'], target: 'M61' },
+    { sources: ['M59', 'M60'], target: 'M62' },
+    { sources: ['M61', 'M62'], target: 'M64' }
+  ];
+
+  connections.forEach(conn => {
+    const targetEl = container.querySelector(`[data-match-id="${conn.target}"]`);
+    if (!targetEl) return;
+    const targetRect = targetEl.getBoundingClientRect();
+    const targetY = targetRect.top - containerRect.top + targetRect.height / 2;
+    const targetX = targetRect.left - containerRect.left;
+
+    conn.sources.forEach(srcId => {
+      const srcEl = container.querySelector(`[data-match-id="${srcId}"]`);
+      if (!srcEl) return;
+      const srcRect = srcEl.getBoundingClientRect();
+      const srcY = srcRect.top - containerRect.top + srcRect.height / 2;
+      const srcX = srcRect.left - containerRect.left + srcRect.width;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const xMid = srcX + (targetX - srcX) / 2;
+      const d = `M ${srcX} ${srcY} C ${xMid} ${srcY}, ${xMid} ${targetY}, ${targetX} ${targetY}`;
+      
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', 'rgba(0, 230, 118, 0.35)'); // Accent emerald line
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('fill', 'none');
+      svg.appendChild(path);
+    });
+  });
 }
 
 // ----------------------------------------------------
@@ -1344,6 +1428,7 @@ function renderTeamProfile(params) {
   }
 
   const isEditing = params.edit === 'true' && state.status === 'pre-draw';
+  const isEditingTeam = params.editTeam === 'true' && state.status === 'pre-draw';
   
   // Roster squad rows
   const squadRowsHTML = team.squad.map((p, idx) => {
@@ -1436,21 +1521,54 @@ function renderTeamProfile(params) {
     </a>
 
     <!-- Profile Header card -->
-    <div class="glass-card" style="display:flex; flex-wrap:wrap; align-items:center; gap:32px; padding:32px; background:linear-gradient(135deg, rgba(22,27,51,0.8), rgba(5,7,15,0.9)); margin-bottom:24px;">
-      <span style="font-size:6rem; filter:drop-shadow(0 8px 16px rgba(0,0,0,0.5));">${team.flag}</span>
-      <div style="flex:1;">
-        <h2 style="font-family:var(--font-display); font-size:2.2rem; margin-bottom:4px;">${team.name}</h2>
-        <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.85rem; color:var(--color-text-secondary); margin-bottom:12px;">
-          <span>Group: <b>${team.group || 'Unassigned'}</b></span>
-          <span>Rank: <b>${groupRankHTML}</b></span>
-          <span>FIFA OVR: <b>${team.squad[5].rating}</b></span>
-        </div>
-        <div style="display:inline-flex; align-items:center; gap:8px; background:var(--bg-primary); padding:6px 12px; border-radius:20px; font-size:0.8rem; border:1px solid var(--glass-border);">
-          <span style="width:8px; height:8px; background:var(--accent-gold); border-radius:50%;"></span>
-          <span>Esports Roster Squad Power: <b>${squadRating} OVR</b></span>
+    ${isEditingTeam ? `
+      <div class="glass-card" style="padding:32px; background:linear-gradient(135deg, rgba(22,27,51,0.8), rgba(5,7,15,0.9)); margin-bottom:24px;">
+        <div style="max-width:500px;">
+          <h3 style="color:var(--accent-gold); font-family:var(--font-display); margin-bottom:20px;">Edit Team Identity</h3>
+          <div style="display:flex; gap:16px; margin-bottom:20px;">
+            <div style="width:80px;">
+              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Flag</label>
+              <input type="text" id="edit-team-flag" value="${team.flag}" required style="
+                width:100%; text-align:center; font-size:1.8rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:8px; color:var(--color-text-primary); outline:none;
+              ">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Team Name</label>
+              <input type="text" id="edit-team-name" value="${team.name}" required style="
+                width:100%; font-size:1.1rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px 12px; border-radius:8px; color:var(--color-text-primary); outline:none; font-weight:600;
+              ">
+            </div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button id="btn-save-team-details" class="btn-primary" style="font-size:0.8rem; padding:6px 16px; display:flex; align-items:center; gap:6px;"><i data-lucide="check"></i> Save Details</button>
+            <a href="#team-profile?id=${team.id}" class="btn-secondary" style="font-size:0.8rem; padding:6px 16px; display:flex; align-items:center; gap:6px;">Cancel</a>
+          </div>
         </div>
       </div>
-    </div>
+    ` : `
+      <div class="glass-card" style="display:flex; flex-wrap:wrap; align-items:center; gap:32px; padding:32px; background:linear-gradient(135deg, rgba(22,27,51,0.8), rgba(5,7,15,0.9)); margin-bottom:24px;">
+        <span style="font-size:6rem; filter:drop-shadow(0 8px 16px rgba(0,0,0,0.5));">${team.flag}</span>
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+            <div>
+              <h2 style="font-family:var(--font-display); font-size:2.2rem; margin-bottom:4px; margin-top:0;">${team.name}</h2>
+              <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.85rem; color:var(--color-text-secondary); margin-bottom:12px;">
+                <span>Group: <b>${team.group || 'Unassigned'}</b></span>
+                <span>Rank: <b>${groupRankHTML}</b></span>
+                <span>FIFA OVR: <b>${team.squad[5].rating}</b></span>
+              </div>
+              <div style="display:inline-flex; align-items:center; gap:8px; background:var(--bg-primary); padding:6px 12px; border-radius:20px; font-size:0.8rem; border:1px solid var(--glass-border);">
+                <span style="width:8px; height:8px; background:var(--accent-gold); border-radius:50%;"></span>
+                <span>Esports Roster Squad Power: <b>${squadRating} OVR</b></span>
+              </div>
+            </div>
+            ${state.status === 'pre-draw' ? `
+              <a href="#team-profile?id=${team.id}&editTeam=true" class="btn-primary" style="font-size:0.8rem; padding:6px 12px; display:flex; align-items:center; gap:6px;"><i data-lucide="edit"></i> Edit Identity</a>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `}
 
     <!-- Roster and Fixtures lists -->
     <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px; align-items:start;">
@@ -1539,6 +1657,33 @@ function renderTeamProfile(params) {
           showToast(`Roster for ${team.name} updated successfully!`, 'success');
           router.navigate('team-profile', { id: team.id });
         }
+      };
+    }
+  }
+
+  if (isEditingTeam) {
+    const btnSaveTeam = document.getElementById('btn-save-team-details');
+    if (btnSaveTeam) {
+      btnSaveTeam.onclick = () => {
+        const newFlag = document.getElementById('edit-team-flag').value.trim();
+        const newName = document.getElementById('edit-team-name').value.trim();
+        
+        if (!newFlag) {
+          showToast("Flag emoji cannot be empty", "error");
+          return;
+        }
+        if (!newName) {
+          showToast("Team name cannot be empty", "error");
+          return;
+        }
+        
+        team.flag = newFlag;
+        team.name = newName;
+        
+        saveState(state);
+        showToast("Team details updated successfully!", "success");
+        router.navigate('team-profile', { id: team.id });
+        router.handleRouting();
       };
     }
   }
@@ -1674,7 +1819,7 @@ function renderFinal() {
       <!-- Golden Glow -->
       <div style="position:absolute; top:-40px; left:50%; transform:translateX(-50%); width:300px; height:300px; background:radial-gradient(circle, rgba(255,179,0,0.15) 0%, transparent 60%); pointer-events:none;"></div>
       
-      <h2 style="font-family:var(--font-display); font-size:1.1rem; color:var(--accent-gold); letter-spacing:4px; text-transform:uppercase; margin-bottom:12px;">🏆 World Cup Grand Final</h2>
+      <h2 style="font-family:var(--font-display); font-size:1.1rem; color:var(--accent-gold); letter-spacing:4px; text-transform:uppercase; margin-bottom:12px;">🏆 Copa de eFootball Grand Final</h2>
       <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-bottom:32px;">LUSAIL ICONIC STADIUM, LUSAIL</p>
 
       <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; max-width:600px; margin:0 auto 40px auto; gap:20px;">
@@ -1700,7 +1845,7 @@ function renderFinal() {
           <div style="font-size:4rem; margin-bottom:12px; animation: trophyBounce 2s infinite ease-in-out;">🏆</div>
           <h2 style="font-family:var(--font-display); font-size:1.8rem; color:var(--accent-gold); letter-spacing:2px; text-transform:uppercase;">WORLD CHAMPION</h2>
           <h1 style="font-size:2.8rem; font-weight:900; margin:12px 0; text-shadow:0 0 20px rgba(255,179,0,0.3);">${winner.flag} ${winner.name}</h1>
-          <p style="color:var(--color-text-secondary); font-size:0.9rem; max-width:400px; margin:0 auto 20px auto;">Congratulations to ${winner.name} for winning the esports eFootball World Cup 2026!</p>
+          <p style="color:var(--color-text-secondary); font-size:0.9rem; max-width:400px; margin:0 auto 20px auto;">Congratulations to ${winner.name} for winning the esports Copa de eFootball 2026!</p>
           <button id="btn-fire-confetti" class="btn-primary" style="background:var(--accent-gold); color:var(--bg-primary);"><i data-lucide="sparkles"></i> Spark Confetti</button>
         </div>
       ` : `
@@ -1739,6 +1884,117 @@ function fireConfettiExplosion() {
 function renderAdmin(params) {
   const state = getState();
   const container = document.getElementById('admin-section');
+
+  // Admin authentication check
+  const isLoggedIn = sessionStorage.getItem('efootball_admin_logged_in') === 'true';
+  if (!isLoggedIn) {
+    const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+    const hasAdmin = accounts.length > 0;
+    let isSignupMode = params.authMode === 'signup';
+
+    // Security redirect: if an admin already exists, do not allow signing up
+    if (isSignupMode && hasAdmin) {
+      showToast("Administrator account already exists. Sign up is disabled.", "error");
+      params.authMode = 'login';
+      router.navigate('admin', { authMode: 'login' });
+      router.handleRouting();
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="max-width: 420px; margin: 60px auto; padding: 32px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--glass-border); border-radius: 16px; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);" class="glass-card">
+        <div style="text-align:center; margin-bottom: 24px;">
+          <span style="font-size:3rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3));">🔐</span>
+          <h2 style="font-family:var(--font-display); margin-top:12px; font-size:1.6rem; color:var(--color-text-primary);">Admin Access Control</h2>
+          <p style="font-size:0.85rem; color:var(--color-text-secondary); margin-top:6px;">
+            ${isSignupMode ? 'Create a secure administrator account' : 'Sign in to access tournament controls'}
+          </p>
+        </div>
+
+        <form id="form-admin-auth">
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div>
+              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Username</label>
+              <input type="text" id="auth-username" required style="
+                width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.9rem;
+              " placeholder="e.g. admin">
+            </div>
+
+            <div>
+              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Password</label>
+              <input type="password" id="auth-password" required style="
+                width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.9rem;
+              " placeholder="••••••••">
+            </div>
+            
+            ${isSignupMode ? `
+              <div>
+                <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Confirm Password</label>
+                <input type="password" id="auth-confirm-password" required style="
+                  width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.9rem;
+                " placeholder="••••••••">
+              </div>
+            ` : ''}
+
+            <button type="submit" class="btn-primary" style="justify-content:center; padding:12px; font-weight:700; margin-top:8px;">
+              ${isSignupMode ? 'Register Admin' : 'Sign In'}
+            </button>
+          </div>
+        </form>
+
+        <div style="margin-top:20px; text-align:center; font-size:0.8rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+          ${isSignupMode ? `
+            <span style="color:var(--color-text-secondary);">Already have an account?</span>
+            <a href="#admin?authMode=login" style="color:var(--accent-emerald); font-weight:600; margin-left:4px;">Sign In</a>
+          ` : `
+            ${!hasAdmin ? `
+              <span style="color:var(--color-text-secondary);">New administrator?</span>
+              <a href="#admin?authMode=signup" style="color:var(--accent-emerald); font-weight:600; margin-left:4px;">Create Account</a>
+            ` : '<span style="color:var(--color-text-muted);">Admin account configured.</span>'}
+          `}
+        </div>
+      </div>
+    `;
+
+    const formAuth = document.getElementById('form-admin-auth');
+    if (formAuth) {
+      formAuth.onsubmit = (e) => {
+        e.preventDefault();
+        const user = document.getElementById('auth-username').value.trim();
+        const pass = document.getElementById('auth-password').value;
+
+        if (isSignupMode) {
+          const confirmPass = document.getElementById('auth-confirm-password').value;
+          if (pass !== confirmPass) {
+            showToast("Passwords do not match!", "error");
+            return;
+          }
+          const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+          if (accounts.some(acc => acc.username.toLowerCase() === user.toLowerCase())) {
+            showToast("Username already exists!", "error");
+            return;
+          }
+          accounts.push({ username: user, password: pass });
+          localStorage.setItem('efootball_admin_accounts', JSON.stringify(accounts));
+          showToast("Admin account registered successfully! Please sign in.", "success");
+          router.navigate('admin', { authMode: 'login' });
+          router.handleRouting();
+        } else {
+          const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+          const matched = accounts.find(acc => acc.username.toLowerCase() === user.toLowerCase() && acc.password === pass);
+          if (matched) {
+            sessionStorage.setItem('efootball_admin_logged_in', 'true');
+            showToast(`Welcome back, ${matched.username}!`, "success");
+            router.navigate('admin');
+            router.handleRouting();
+          } else {
+            showToast("Invalid username or password.", "error");
+          }
+        }
+      };
+    }
+    return;
+  }
 
   const editMatchId = params.match || '';
   let matchEditPanelHTML = '';
@@ -1951,9 +2207,14 @@ function renderAdmin(params) {
   `;
 
   container.innerHTML = `
-    <h2 style="margin-bottom:20px; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
-      <i data-lucide="settings" style="color:var(--accent-emerald);"></i> Tournament Control Center
-    </h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+      <h2 style="font-family:var(--font-display); display:flex; align-items:center; gap:8px; margin:0;">
+        <i data-lucide="settings" style="color:var(--accent-emerald);"></i> Tournament Control Center
+      </h2>
+      <button id="btn-admin-logout" class="btn-secondary" style="font-size:0.8rem; padding:6px 12px; color:var(--accent-red); border-color:rgba(255, 61, 0, 0.2); display:flex; align-items:center; gap:6px;">
+        <i data-lucide="log-out" style="width:14px; height:14px;"></i> Log Out
+      </button>
+    </div>
 
     <!-- Dynamic Edit matching score sub-panel -->
     ${matchEditPanelHTML}
@@ -1987,6 +2248,34 @@ function renderAdmin(params) {
       <!-- Database configurations & actions -->
       <div style="display:flex; flex-direction:column; gap:24px;">
         
+        <!-- Fixture Simulator -->
+        ${state.status !== 'pre-draw' && state.status !== 'drawing' && state.status !== 'draw-completed' ? `
+          <div class="glass-card" style="border:1px solid var(--accent-emerald);">
+            <h3 style="margin-bottom:12px; color:var(--accent-emerald); font-family:var(--font-display);">Esports Fixture Simulator</h3>
+            <p style="font-size:0.8rem; color:var(--color-text-secondary); margin-bottom:16px;">Simulate match outcomes automatically to progress the tournament stages and populate the interactive bracket tree.</p>
+            
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              ${(state.status === 'fixtures-generated' || state.status === 'group-stage') ? `
+                <button id="btn-sim-groups" class="btn-primary" style="justify-content:center; background:linear-gradient(135deg, var(--accent-emerald), #00b0ff); border:none; display:flex; align-items:center; gap:8px;">
+                  <i data-lucide="play-circle"></i> Simulate All Group Matches
+                </button>
+              ` : ''}
+              
+              ${state.status === 'knockouts' ? `
+                <button id="btn-sim-knockouts" class="btn-primary" style="justify-content:center; background:linear-gradient(135deg, var(--accent-gold), var(--accent-red)); border:none; color:var(--bg-primary); display:flex; align-items:center; gap:8px;">
+                  <i data-lucide="play-circle"></i> Simulate All Knockout Matches
+                </button>
+              ` : ''}
+
+              ${state.status === 'finished' ? `
+                <div style="text-align:center; font-size:0.85rem; color:var(--accent-emerald); font-weight:700; padding:10px;">
+                  🏆 Tournament Finished!
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
         <!-- Firebase config Form -->
         ${fbConfigHTML}
 
@@ -2178,6 +2467,27 @@ function renderAdmin(params) {
     };
   }
 
+  // Esports Fixture Simulation bindings
+  const btnSimGroups = document.getElementById('btn-sim-groups');
+  if (btnSimGroups) {
+    btnSimGroups.onclick = () => {
+      simulateAllGroupMatches(state);
+      showToast("All group stage matches simulated successfully!", "success");
+      router.navigate('knockout');
+      router.handleRouting();
+    };
+  }
+
+  const btnSimKnockouts = document.getElementById('btn-sim-knockouts');
+  if (btnSimKnockouts) {
+    btnSimKnockouts.onclick = () => {
+      simulateAllKnockoutMatches(state);
+      showToast("All knockout bracket matches simulated successfully!", "success");
+      router.navigate('knockout');
+      router.handleRouting();
+    };
+  }
+
   // System actions (Resets, Import, Export)
   const btnResetScores = document.getElementById('btn-reset-scores');
   if (btnResetScores) {
@@ -2259,6 +2569,16 @@ function renderAdmin(params) {
         }
       };
       reader.readAsText(file);
+    };
+  }
+
+  const btnLogout = document.getElementById('btn-admin-logout');
+  if (btnLogout) {
+    btnLogout.onclick = () => {
+      sessionStorage.removeItem('efootball_admin_logged_in');
+      showToast("Logged out successfully.", "success");
+      router.navigate('admin');
+      router.handleRouting();
     };
   }
 

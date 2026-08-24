@@ -21,7 +21,22 @@ export function createSquadForTeam(teamId, teamName, rating) {
   });
 }
 
-// Return empty teams list initially
+// Return 32 placeholder seeded teams initially
 export function getInitialTeams() {
-  return [];
+  return Array.from({ length: 32 }, (_, i) => {
+    const num = i + 1;
+    const id = `T${num}`;
+    const name = `Team ${num}`;
+    const pot = Math.floor(i / 8) + 1;
+    const rating = 95 - pot * 5;
+    
+    return {
+      id,
+      name,
+      flag: '🏳️',
+      logo: 'generic',
+      group: '',
+      squad: createSquadForTeam(id, name, rating)
+    };
+  });
 }
