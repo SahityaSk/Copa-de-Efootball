@@ -4,7 +4,7 @@ import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig
 import { Router } from './router.js';
 import { GroupDrawManager } from './draw.js';
 import { generateGroupMatches, generateKnockoutMatches } from './scheduler.js';
-import { resetTournament, hardResetTournament, enterMatchResult, editMatchSchedule, addCustomTeam, removeTeamFromState } from './admin.js';
+import { resetTournament, hardResetTournament, clearAllTeams, enterMatchResult, editMatchSchedule, addCustomTeam, removeTeamFromState } from './admin.js';
 
 // Setup Toast Notification system
 export function showToast(message, type = 'success') {
@@ -232,7 +232,7 @@ function renderDashboard() {
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top: 8px;">
             <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid var(--glass-border);">
               <div style="font-size:0.75rem; color:var(--color-text-secondary); text-transform:uppercase;">Total Teams</div>
-              <div style="font-size:1.6rem; font-weight:700; font-family:var(--font-display); color:var(--accent-gold);">32</div>
+              <div style="font-size:1.6rem; font-weight:700; font-family:var(--font-display); color:var(--accent-gold);">${state.teams.length}</div>
             </div>
             <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px solid var(--glass-border);">
               <div style="font-size:0.75rem; color:var(--color-text-secondary); text-transform:uppercase;">Stage</div>
@@ -296,13 +296,25 @@ function renderDraw() {
   
   let drawStateHTML = '';
   if (state.status === 'pre-draw') {
-    // Show Pot selection and blank groups
+    const isReadyForDraw = state.teams.length === 32;
     drawStateHTML = `
       <div style="text-align:center; margin-bottom: 24px;">
         <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Click Start to draw them into Groups A-H.</p>
+        
+        ${!isReadyForDraw ? `
+          <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
+            <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
+              ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
+            </p>
+            <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
+              Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
+            </p>
+          </div>
+        ` : ''}
+
         <div style="display:flex; justify-content:center; gap:12px;">
-          <button id="btn-run-draw" class="btn-primary"><i data-lucide="dices"></i> 🎲 Start Draw</button>
-          <button id="btn-quick-draw" class="btn-secondary">⚡ Quick Draw (Instant)</button>
+          <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
+          <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
         </div>
       </div>
     `;
@@ -1331,8 +1343,35 @@ function renderTeamProfile(params) {
     groupRankHTML = posIdx !== -1 ? `#${posIdx + 1} in Group ${team.group}` : `Group ${team.group}`;
   }
 
+  const isEditing = params.edit === 'true' && state.status === 'pre-draw';
+  
   // Roster squad rows
   const squadRowsHTML = team.squad.map((p, idx) => {
+    if (isEditing) {
+      return `
+        <tr>
+          <td style="font-weight:bold; text-align:center; width:40px;">${idx + 1}</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="player-pos-badge" style="width:26px; height:18px; font-size:0.65rem;">${p.position}</span>
+              <input type="text" class="edit-player-name" data-id="${p.id}" value="${p.name}" required style="
+                background:var(--bg-primary); border:1px solid var(--glass-border); padding:4px 8px; border-radius:4px; color:var(--color-text-primary); outline:none; font-size:0.85rem; width:100%; max-width:180px;
+              ">
+            </div>
+          </td>
+          <td style="text-align:center;">
+            <input type="number" class="edit-player-rating" data-id="${p.id}" min="50" max="99" value="${p.rating}" required style="
+              width:60px; text-align:center; background:var(--bg-primary); border:1px solid var(--glass-border); padding:4px; border-radius:4px; color:var(--color-text-primary); outline:none; font-size:0.85rem;
+            ">
+          </td>
+          <td style="text-align:center;">-</td>
+          <td style="text-align:center;">-</td>
+          <td style="text-align:center;">-</td>
+          <td style="text-align:center;">-</td>
+          <td style="text-align:center;">-</td>
+        </tr>
+      `;
+    }
     return `
       <tr>
         <td style="font-weight:bold; text-align:center; width:40px;">${idx + 1}</td>
@@ -1418,7 +1457,19 @@ function renderTeamProfile(params) {
       
       <!-- Squad Table list -->
       <div class="glass-card" style="padding:16px;">
-        <h3 style="margin-bottom:16px; color:var(--accent-gold); font-family:var(--font-display);">eFootball Roster & Statistics</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 style="color:var(--accent-gold); font-family:var(--font-display); margin:0;">eFootball Roster & Statistics</h3>
+          ${state.status === 'pre-draw' ? `
+            ${isEditing ? `
+              <div style="display:flex; gap:8px;">
+                <button id="btn-save-roster" class="btn-primary" style="font-size:0.8rem; padding:4px 12px;"><i data-lucide="check"></i> Save</button>
+                <a href="#team-profile?id=${team.id}" class="btn-secondary" style="font-size:0.8rem; padding:4px 12px;">Cancel</a>
+              </div>
+            ` : `
+              <a href="#team-profile?id=${team.id}&edit=true" class="btn-primary" style="font-size:0.8rem; padding:4px 12px;"><i data-lucide="edit-3"></i> Edit Roster</a>
+            `}
+          ` : ''}
+        </div>
         <div class="table-container">
           <table class="standings-table" style="font-size:0.85rem;">
             <thead>
@@ -1450,6 +1501,47 @@ function renderTeamProfile(params) {
 
     </div>
   `;
+
+  if (isEditing) {
+    const btnSave = document.getElementById('btn-save-roster');
+    if (btnSave) {
+      btnSave.onclick = () => {
+        const nameInputs = document.querySelectorAll('.edit-player-name');
+        const ratingInputs = document.querySelectorAll('.edit-player-rating');
+        
+        let hasError = false;
+        
+        nameInputs.forEach((input, index) => {
+          const playerId = input.getAttribute('data-id');
+          const pName = input.value.trim();
+          const pRating = parseInt(ratingInputs[index].value, 10);
+          
+          if (!pName) {
+            showToast("Player name cannot be empty", "error");
+            hasError = true;
+            return;
+          }
+          if (isNaN(pRating) || pRating < 50 || pRating > 99) {
+            showToast("Player rating must be between 50 and 99", "error");
+            hasError = true;
+            return;
+          }
+          
+          const player = team.squad.find(p => p.id === playerId);
+          if (player) {
+            player.name = pName;
+            player.rating = pRating;
+          }
+        });
+        
+        if (!hasError) {
+          saveState(state);
+          showToast(`Roster for ${team.name} updated successfully!`, 'success');
+          router.navigate('team-profile', { id: team.id });
+        }
+      };
+    }
+  }
 
   lucide.createIcons();
 }
@@ -1811,6 +1903,36 @@ function renderAdmin(params) {
     </div>
   `;
 
+  // Get list of teams in pre-draw phase
+  let registeredTeamsListHTML = '';
+  if (state.status === 'pre-draw') {
+    const teamsListHTML = state.teams.map(t => {
+      const ovrRating = t.squad && t.squad[5] ? t.squad[5].rating : (t.rating || 80);
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:6px; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.2rem;">${t.flag}</span>
+            <span style="font-weight:600; font-size:0.85rem;">${t.name}</span>
+            <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:1px 6px; border-radius:10px;">${ovrRating} OVR</span>
+          </div>
+          <button class="btn-delete-team" data-id="${t.id}" style="background:transparent; border:none; color:var(--accent-red); cursor:pointer; display:flex; align-items:center; padding:4px;">
+            <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    registeredTeamsListHTML = `
+      <div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+        <h4 style="margin-bottom:10px; color:var(--color-text-primary); font-size:0.9rem;">Registered Teams (${state.teams.length}/32)</h4>
+        ${state.teams.length === 0 
+          ? '<p style="font-size:0.8rem; color:var(--color-text-muted); text-align:center; padding:10px 0;">No teams registered yet. Use the form above to add teams.</p>'
+          : `<div style="display:grid; grid-template-columns: 1fr; gap:0px; max-height:220px; overflow-y:auto; padding-right:4px;">${teamsListHTML}</div>`
+        }
+      </div>
+    `;
+  }
+
   // Custom team list form and roster editor
   const customTeamsListHTML = `
     <div class="glass-card" style="margin-bottom:24px;">
@@ -1823,6 +1945,8 @@ function renderAdmin(params) {
         <input type="number" id="add-team-rating" placeholder="OVR Ovr (60-99)" min="60" max="99" required style="width:120px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
         <button type="submit" class="btn-primary" ${state.status !== 'pre-draw' ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} style="font-size:0.85rem; padding:8px 16px;">Add Team</button>
       </form>
+
+      ${registeredTeamsListHTML}
     </div>
   `;
 
@@ -2071,11 +2195,31 @@ function renderAdmin(params) {
     btnHardReset.onclick = () => {
       if (confirm("WARNING: This performs a total factory reset of all squads, teams, and matches. Continue?")) {
         hardResetTournament();
-        showToast("System factory reset complete.", "success");
+        showToast("System factory reset complete. Ready for manual entry.", "success");
         router.navigate('dashboard');
       }
     };
   }
+
+  // Attach delete buttons for teams
+  const btnDeleteTeams = document.querySelectorAll('.btn-delete-team');
+  btnDeleteTeams.forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.getAttribute('data-id');
+      const teamToDelete = state.teams.find(t => t.id === id);
+      const flag = teamToDelete ? teamToDelete.flag : '';
+      const name = teamToDelete ? teamToDelete.name : id;
+      if (confirm(`Are you sure you want to remove ${flag} ${name} from the tournament?`)) {
+        try {
+          removeTeamFromState(state, id);
+          showToast(`Team ${name} removed.`, 'success');
+          renderAdmin(params);
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      }
+    };
+  });
 
   const btnExport = document.getElementById('btn-export-data');
   if (btnExport) {

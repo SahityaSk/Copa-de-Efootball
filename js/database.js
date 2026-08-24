@@ -93,7 +93,7 @@ function saveStateToLocal(state) {
 export function createDefaultState() {
   return {
     status: 'pre-draw', // 'pre-draw', 'drawing', 'draw-completed', 'fixtures-generated', 'group-stage', 'knockouts', 'finished'
-    teams: getInitialTeams(),
+    teams: [],
     groups: {
       A: [], B: [], C: [], D: [], E: [], F: [], G: [], H: []
     },
@@ -101,10 +101,10 @@ export function createDefaultState() {
     drawState: {
       completed: false,
       pots: {
-        1: ['ARG', 'FRA', 'BRA', 'ENG', 'POR', 'ESP', 'GER', 'BEL'],
-        2: ['NED', 'ITA', 'CRO', 'URU', 'COL', 'MAR', 'USA', 'SEN'],
-        3: ['JPN', 'KOR', 'MEX', 'SUI', 'DEN', 'SWE', 'UKR', 'POL'],
-        4: ['NGA', 'EGY', 'CAN', 'AUS', 'CMR', 'GHA', 'KSA', 'IRN']
+        1: [],
+        2: [],
+        3: [],
+        4: []
       },
       currentPotIndex: 1,
       currentTeamIndex: 0,

@@ -14,8 +14,15 @@ export function resetTournament(state) {
   return defaultState;
 }
 
-// Full reset including custom teams
+// Full reset to empty pre-draw state
 export function hardResetTournament() {
+  const defaultState = createDefaultState();
+  saveState(defaultState);
+  return defaultState;
+}
+
+// Clear all teams and reset tournament to empty state
+export function clearAllTeams() {
   const defaultState = createDefaultState();
   saveState(defaultState);
   return defaultState;
