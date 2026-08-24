@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eFootball World Cup 2026</title>
+  <meta name="description" content="Manage and view the 32-team eFootball World Cup Esports Tournament in real-time.">
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Desktop Header -->
+    <header class="app-header">
+      <div class="logo-container">
+        <div class="logo-icon">🏆</div>
+        <div class="logo-text">eFOOTBALL <span>WORLD CUP</span></div>
+      </div>
+      <nav class="desktop-nav">
+        <a href="#dashboard" class="desktop-nav-link" id="nav-dashboard"><i data-lucide="home"></i> Dashboard</a>
+        <a href="#draw" class="desktop-nav-link" id="nav-draw"><i data-lucide="dices"></i> Draw</a>
+        <a href="#groups" class="desktop-nav-link" id="nav-groups"><i data-lucide="columns-3"></i> Groups</a>
+        <a href="#fixtures" class="desktop-nav-link" id="nav-fixtures"><i data-lucide="calendar"></i> Fixtures</a>
+        <a href="#knockout" class="desktop-nav-link" id="nav-knockout"><i data-lucide="award"></i> Knockout</a>
+        <a href="#results" class="desktop-nav-link" id="nav-results"><i data-lucide="clipboard-check"></i> Results</a>
+        <a href="#statistics" class="desktop-nav-link" id="nav-statistics"><i data-lucide="bar-chart-3"></i> Stats</a>
+        <a href="#teams" class="desktop-nav-link" id="nav-teams"><i data-lucide="users"></i> Teams</a>
+        <a href="#admin" class="desktop-nav-link" id="nav-admin"><i data-lucide="settings"></i> Admin</a>
+      </nav>
+    </header>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-nav">
+      <a href="#dashboard" class="mobile-nav-link"><i data-lucide="home"></i><span>Home</span></a>
+      <a href="#draw" class="mobile-nav-link"><i data-lucide="dices"></i><span>Draw</span></a>
+      <a href="#groups" class="mobile-nav-link"><i data-lucide="columns-3"></i><span>Groups</span></a>
+      <a href="#fixtures" class="mobile-nav-link"><i data-lucide="calendar"></i><span>Fixtures</span></a>
+      <a href="#knockout" class="mobile-nav-link"><i data-lucide="award"></i><span>Knockout</span></a>
+      <a href="#admin" class="mobile-nav-link"><i data-lucide="settings"></i><span>Admin</span></a>
+    </nav>
+
+    <!-- MAIN SPA CONTAINER -->
+    <main class="app-main">
+      
+      <!-- Toast Container -->
+      <div id="toast-container"></div>
+
+      <!-- 1. DASHBOARD PAGE -->
+      <section id="dashboard-section" class="page-section">
+        <!-- Hero, Countdown, Live match ticker render here -->
+      </section>
+
+      <!-- 2. GROUP DRAW PAGE -->
+      <section id="draw-section" class="page-section">
+        <!-- Cinematic draw bowl, pots, group assignment animation -->
+      </section>
+
+      <!-- 3. GROUPS STANDINGS PAGE -->
+      <section id="groups-section" class="page-section">
+        <!-- A-H tabs, Standings tables, corresponding results -->
+      </section>
+
+      <!-- 4. FIXTURES PAGE -->
+      <section id="fixtures-section" class="page-section">
+        <!-- Matchday calendar with 8 matches per day -->
+      </section>
+
+      <!-- 5. RESULTS PAGE -->
+      <section id="results-section" class="page-section">
+        <!-- Completed results with filtering/search -->
+      </section>
+
+      <!-- 6. MATCH CENTER / DETAILS PAGE -->
+      <section id="match-center-section" class="page-section">
+        <!-- Detailed statistics, timeline events, rosters -->
+      </section>
+
+      <!-- 7. KNOCKOUT BRACKET PAGE -->
+      <section id="knockout-section" class="page-section">
+        <!-- Scrollable bracket trees from R16 to Final -->
+      </section>
+
+      <!-- 8. TEAMS DIRECTORY PAGE -->
+      <section id="teams-section" class="page-section">
+        <!-- Responsive grid of 32 teams -->
+      </section>
+
+      <!-- 9. TEAM PROFILE PAGE -->
+      <section id="team-profile-section" class="page-section">
+        <!-- Selected team profile, squad list, fixtures, rankings -->
+      </section>
+
+      <!-- 10. STATISTICS HUB PAGE -->
+      <section id="statistics-section" class="page-section">
+        <!-- Leaderboards of scorers, clean sheets, wins, etc. -->
+      </section>
+
+      <!-- 11. FINAL CINEMATIC PAGE -->
+      <section id="final-section" class="page-section">
+        <!-- Trophy celebration, confetti, match summary -->
+      </section>
+
+      <!-- 12. ADMIN CONTROL PAGE -->
+      <section id="admin-section" class="page-section">
+        <!-- Result editor, database configurations, state reset -->
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Lucide Icon Library -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Confetti script -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Main Application Script -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
