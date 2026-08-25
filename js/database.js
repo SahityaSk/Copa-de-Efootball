@@ -11,10 +11,23 @@ let unsubscribeFirebase = null;
 const STATE_LOCAL_KEY = 'efootball_tournament_state';
 const FIREBASE_CONFIG_KEY = 'efootball_firebase_config';
 
-// Load Firebase configuration from localStorage
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCQPXIax92p76a1NigsqXYt1DOVzfuweN0",
+  authDomain: "copa-de-efootball.firebaseapp.com",
+  projectId: "copa-de-efootball",
+  storageBucket: "copa-de-efootball.firebasestorage.app",
+  messagingSenderId: "441201558487",
+  appId: "1:441201558487:web:8830c4149d006733498192",
+  measurementId: "G-6B8C57F1DV"
+};
+
+// Load Firebase configuration from localStorage, falling back to default configuration
 export function getFirebaseConfig() {
   const config = localStorage.getItem(FIREBASE_CONFIG_KEY);
-  return config ? JSON.parse(config) : null;
+  if (config) {
+    return JSON.parse(config);
+  }
+  return DEFAULT_FIREBASE_CONFIG;
 }
 
 // Save Firebase configuration to localStorage
