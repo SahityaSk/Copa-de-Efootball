@@ -915,117 +915,6 @@ function renderMatchCenter(params) {
     scoreHTML = `${match.homeScore} - ${match.awayScore}`;
   }
 
-  // Timeline list
-  let timelineHTML = '';
-  if (match.timeline.length > 0) {
-    timelineHTML = match.timeline.map(event => {
-      const isHome = event.teamId === match.homeTeamId;
-      let icon = '⚽';
-      if (event.type === 'yellow_card') icon = '🟨';
-      if (event.type === 'red_card') icon = '🟥';
-
-      return `
-        <div style="display:flex; justify-content:${isHome ? 'flex-start' : 'flex-end'}; width:100%;">
-          <div class="glass-card" style="padding:8px 16px; border-radius:8px; display:flex; align-items:center; gap:8px; font-size:0.85rem; width:45%; margin-bottom:8px;
-            background: ${isHome ? 'rgba(0,230,118,0.05)' : 'rgba(255,179,0,0.05)'};
-            border-left: 3px solid ${isHome ? 'var(--accent-emerald)' : 'var(--accent-gold)'};
-          ">
-            <span style="font-weight:700; color:var(--accent-gold); font-family:var(--font-display);">${event.minute}'</span>
-            <span>${icon}</span>
-            <div style="text-align:left;">
-              <div style="font-weight:600;">${event.playerName}</div>
-              ${event.detail ? `<div style="font-size:0.7rem; color:var(--color-text-secondary);">${event.detail}</div>` : ''}
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  } else {
-    timelineHTML = `<div style="text-align:center; color:var(--color-text-muted); font-size:0.85rem; padding: 20px 0;">No timeline events recorded.</div>`;
-  }
-
-  // Rosters/Lineups List
-  let lineupsHTML = '';
-  if (match.homeLineup && match.awayLineup) {
-    lineupsHTML = `
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-        <!-- Home Lineup -->
-        <div>
-          <h4 style="margin-bottom:12px; color:var(--accent-emerald); font-family:var(--font-display);">${homeName} Roster</h4>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            ${match.homeLineup.map(p => `
-              <div class="player-card" style="padding:8px 12px;">
-                <div class="player-main-info">
-                  <span class="player-pos-badge" style="width:28px; height:20px; font-size:0.65rem;">${p.position}</span>
-                  <span style="font-weight:600; font-size:0.85rem;">${p.name}</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                  ${p.goals > 0 ? `<span style="font-size:0.75rem;">⚽ ${p.goals}</span>` : ''}
-                  ${p.assists > 0 ? `<span style="font-size:0.75rem; color:var(--color-text-secondary);">👟 ${p.assists}</span>` : ''}
-                  ${p.yellowCard ? '🟨' : ''}
-                  ${p.redCard ? '🟥' : ''}
-                  <span class="player-rating-circle" style="width:24px; height:24px; font-size:0.7rem;">${p.rating}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Away Lineup -->
-        <div>
-          <h4 style="margin-bottom:12px; color:var(--accent-gold); font-family:var(--font-display); text-align:right;">${awayName} Roster</h4>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            ${match.awayLineup.map(p => `
-              <div class="player-card" style="padding:8px 12px; flex-direction:row-reverse;">
-                <div class="player-main-info" style="flex-direction:row-reverse;">
-                  <span class="player-pos-badge" style="width:28px; height:20px; font-size:0.65rem;">${p.position}</span>
-                  <span style="font-weight:600; font-size:0.85rem;">${p.name}</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:10px; flex-direction:row-reverse;">
-                  ${p.goals > 0 ? `<span style="font-size:0.75rem;">⚽ ${p.goals}</span>` : ''}
-                  ${p.assists > 0 ? `<span style="font-size:0.75rem; color:var(--color-text-secondary);">👟 ${p.assists}</span>` : ''}
-                  ${p.yellowCard ? '🟨' : ''}
-                  ${p.redCard ? '🟥' : ''}
-                  <span class="player-rating-circle" style="width:24px; height:24px; font-size:0.7rem;">${p.rating}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-  } else {
-    // Show dynamic squads as defaults before match result is entered
-    lineupsHTML = `
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-        <div>
-          <h4 style="margin-bottom:12px; color:var(--accent-emerald); font-family:var(--font-display);">${homeName} Roster</h4>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            ${(homeTeam ? homeTeam.squad : []).map(p => `
-              <div class="player-card" style="padding:8px 12px;">
-                <span class="player-pos-badge" style="width:28px; height:20px; font-size:0.65rem;">${p.position}</span>
-                <span style="font-weight:600; font-size:0.85rem; margin-left:8px;">${p.name}</span>
-                <span class="player-rating-circle" style="width:24px; height:24px; font-size:0.7rem; margin-left:auto;">${p.rating}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-        <div>
-          <h4 style="margin-bottom:12px; color:var(--accent-gold); font-family:var(--font-display); text-align:right;">${awayName} Roster</h4>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            ${(awayTeam ? awayTeam.squad : []).map(p => `
-              <div class="player-card" style="padding:8px 12px; flex-direction:row-reverse;">
-                <span class="player-pos-badge" style="width:28px; height:20px; font-size:0.65rem;">${p.position}</span>
-                <span style="font-weight:600; font-size:0.85rem; margin-right:8px;">${p.name}</span>
-                <span class="player-rating-circle" style="width:24px; height:24px; font-size:0.7rem; margin-right:auto;">${p.rating}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   container.innerHTML = `
     <!-- Top Nav Back -->
     <a href="#fixtures" class="btn-secondary" style="margin-bottom:20px; padding: 6px 12px; font-size:0.8rem;">
@@ -1050,7 +939,7 @@ function renderMatchCenter(params) {
           <div style="font-family:var(--font-display); font-size:3.5rem; font-weight:900; letter-spacing:4px; color:var(--color-text-primary);">
             ${scoreHTML}
           </div>
-          ${match.homePenalties !== null ? `
+          ${(match.homePenalties != null && match.homePenalties !== '') ? `
             <div style="font-size:0.85rem; color:var(--accent-gold); font-weight:600;">
               (${match.homePenalties} - ${match.awayPenalties} Pen)
             </div>
@@ -1068,17 +957,19 @@ function renderMatchCenter(params) {
         <span>📅 ${match.date}</span>
         <span>⏰ ${match.time}</span>
         <span>🏟️ ${match.stadium}</span>
-        <span>👔 Ref: ${match.referee}</span>
+        ${match.referee ? `<span>👔 Ref: ${match.referee}</span>` : ''}
         ${match.manOfTheMatch ? `<span>🌟 POTM: <b style="color:var(--accent-emerald);">${match.manOfTheMatch}</b></span>` : ''}
       </div>
     </div>
 
     <!-- Match center grids -->
-    <div style="display:grid; grid-template-columns:1.2fr 1.8fr; gap:24px;">
+    <div style="max-width: 650px; margin: 0 auto;">
       
       <!-- Stats Column -->
-      <div class="glass-card">
-        <h3 style="margin-bottom:20px; font-family:var(--font-display); color:var(--accent-emerald);">Match Statistics</h3>
+      <div class="glass-card" style="padding: 24px;">
+        <h3 style="margin-top: 0; margin-bottom:24px; font-family:var(--font-display); color:var(--accent-emerald); text-align:center; border-bottom:1px solid var(--glass-border); padding-bottom:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <i data-lucide="bar-chart-2"></i> Match Performance Statistics
+        </h3>
         ${isCompleted && match.stats ? `
           ${renderStatBar('Possession (%)', match.stats.possession[0], match.stats.possession[1])}
           ${renderStatBar('Shots', match.stats.shots[0], match.stats.shots[1])}
@@ -1089,25 +980,9 @@ function renderMatchCenter(params) {
           ${renderStatBar('Red Cards', match.stats.redCards[0], match.stats.redCards[1])}
         ` : `
           <div style="text-align:center; color:var(--color-text-muted); font-size:0.85rem; padding: 40px 0;">
-            Statistics will be calculated automatically once the match is completed.
+            Statistics will be generated automatically once the match is completed.
           </div>
         `}
-      </div>
-
-      <!-- Right Column: Timeline & Lineups -->
-      <div style="display:flex; flex-direction:column; gap:24px;">
-        <!-- Timeline -->
-        <div class="glass-card">
-          <h3 style="margin-bottom:20px; font-family:var(--font-display); color:var(--accent-gold);">Match Events Timeline</h3>
-          <div class="timeline-list" style="border:none; padding:0;">
-            ${timelineHTML}
-          </div>
-        </div>
-
-        <!-- Lineups -->
-        <div class="glass-card">
-          ${lineupsHTML}
-        </div>
       </div>
 
     </div>
@@ -1416,9 +1291,6 @@ function renderTeamProfile(params) {
     return;
   }
 
-  // Calculate overall rating, squad rating
-  const squadRating = Math.round(team.squad.reduce((sum, p) => sum + p.rating, 0) / team.squad.length);
-
   // Group standing rank
   let groupRankHTML = 'Unassigned';
   if (team.group) {
@@ -1427,55 +1299,8 @@ function renderTeamProfile(params) {
     groupRankHTML = posIdx !== -1 ? `#${posIdx + 1} in Group ${team.group}` : `Group ${team.group}`;
   }
 
-  const isEditing = params.edit === 'true' && state.status === 'pre-draw';
   const isEditingTeam = params.editTeam === 'true' && state.status === 'pre-draw';
   
-  // Roster squad rows
-  const squadRowsHTML = team.squad.map((p, idx) => {
-    if (isEditing) {
-      return `
-        <tr>
-          <td style="font-weight:bold; text-align:center; width:40px;">${idx + 1}</td>
-          <td>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="player-pos-badge" style="width:26px; height:18px; font-size:0.65rem;">${p.position}</span>
-              <input type="text" class="edit-player-name" data-id="${p.id}" value="${p.name}" required style="
-                background:var(--bg-primary); border:1px solid var(--glass-border); padding:4px 8px; border-radius:4px; color:var(--color-text-primary); outline:none; font-size:0.85rem; width:100%; max-width:180px;
-              ">
-            </div>
-          </td>
-          <td style="text-align:center;">
-            <input type="number" class="edit-player-rating" data-id="${p.id}" min="50" max="99" value="${p.rating}" required style="
-              width:60px; text-align:center; background:var(--bg-primary); border:1px solid var(--glass-border); padding:4px; border-radius:4px; color:var(--color-text-primary); outline:none; font-size:0.85rem;
-            ">
-          </td>
-          <td style="text-align:center;">-</td>
-          <td style="text-align:center;">-</td>
-          <td style="text-align:center;">-</td>
-          <td style="text-align:center;">-</td>
-          <td style="text-align:center;">-</td>
-        </tr>
-      `;
-    }
-    return `
-      <tr>
-        <td style="font-weight:bold; text-align:center; width:40px;">${idx + 1}</td>
-        <td>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="player-pos-badge" style="width:26px; height:18px; font-size:0.65rem;">${p.position}</span>
-            <span style="font-weight:600;">${p.name}</span>
-          </div>
-        </td>
-        <td style="text-align:center;"><span class="player-rating-circle" style="width:24px; height:24px; font-size:0.7rem;">${p.rating}</span></td>
-        <td style="text-align:center; font-weight:600;">${p.matchesPlayed}</td>
-        <td style="text-align:center; color:var(--accent-emerald); font-weight:700;">${p.goals}</td>
-        <td style="text-align:center; color:var(--color-text-secondary); font-weight:600;">${p.assists}</td>
-        <td style="text-align:center; color:var(--accent-gold);">${p.cleanSheets}</td>
-        <td style="text-align:center; font-size:0.8rem; color:var(--color-text-muted);">${p.yellowCards}🟨 / ${p.redCards}🟥</td>
-      </tr>
-    `;
-  }).join('');
-
   // Team Matches list
   const teamMatches = state.matches.filter(m => m.homeTeamId === team.id || m.awayTeamId === team.id);
   let matchesHTML = '';
@@ -1513,6 +1338,43 @@ function renderTeamProfile(params) {
       `;
     }).join('');
   }
+
+  // Calculate team-level statistics
+  const played = teamMatches.filter(m => m.status === 'completed').length;
+  let won = 0, drawn = 0, lost = 0, gf = 0, ga = 0, cleanSheets = 0;
+  
+  teamMatches.forEach(m => {
+    if (m.status !== 'completed') return;
+    const isHome = m.homeTeamId === team.id;
+    const teamScore = isHome ? m.homeScore : m.awayScore;
+    const oppScore = isHome ? m.awayScore : m.homeScore;
+    
+    gf += teamScore;
+    ga += oppScore;
+    if (oppScore === 0) cleanSheets += 1;
+    
+    if (teamScore > oppScore) {
+      won += 1;
+    } else if (teamScore < oppScore) {
+      lost += 1;
+    } else {
+      if (m.type === 'knockout') {
+        const pHome = m.homePenalties || 0;
+        const pAway = m.awayPenalties || 0;
+        if (pHome > pAway) {
+          if (isHome) won += 1; else lost += 1;
+        } else {
+          if (isHome) lost += 1; else won += 1;
+        }
+      } else {
+        drawn += 1;
+      }
+    }
+  });
+
+  const gd = gf - ga;
+  const winRate = played > 0 ? Math.round((won / played) * 100) : 0;
+  const avgGoals = played > 0 ? (gf / played).toFixed(1) : '0.0';
 
   container.innerHTML = `
     <!-- Back to catalog -->
@@ -1555,11 +1417,10 @@ function renderTeamProfile(params) {
               <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.85rem; color:var(--color-text-secondary); margin-bottom:12px;">
                 <span>Group: <b>${team.group || 'Unassigned'}</b></span>
                 <span>Rank: <b>${groupRankHTML}</b></span>
-                <span>FIFA OVR: <b>${team.squad[5].rating}</b></span>
               </div>
               <div style="display:inline-flex; align-items:center; gap:8px; background:var(--bg-primary); padding:6px 12px; border-radius:20px; font-size:0.8rem; border:1px solid var(--glass-border);">
                 <span style="width:8px; height:8px; background:var(--accent-gold); border-radius:50%;"></span>
-                <span>Esports Roster Squad Power: <b>${squadRating} OVR</b></span>
+                <span>Team Rating: <b>${team.squad && team.squad[5] ? team.squad[5].rating : 85} OVR</b></span>
               </div>
             </div>
             ${state.status === 'pre-draw' ? `
@@ -1570,43 +1431,70 @@ function renderTeamProfile(params) {
       </div>
     `}
 
-    <!-- Roster and Fixtures lists -->
+    <!-- Stats and Fixtures lists -->
     <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px; align-items:start;">
       
-      <!-- Squad Table list -->
-      <div class="glass-card" style="padding:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-          <h3 style="color:var(--accent-gold); font-family:var(--font-display); margin:0;">eFootball Roster & Statistics</h3>
-          ${state.status === 'pre-draw' ? `
-            ${isEditing ? `
-              <div style="display:flex; gap:8px;">
-                <button id="btn-save-roster" class="btn-primary" style="font-size:0.8rem; padding:4px 12px;"><i data-lucide="check"></i> Save</button>
-                <a href="#team-profile?id=${team.id}" class="btn-secondary" style="font-size:0.8rem; padding:4px 12px;">Cancel</a>
-              </div>
-            ` : `
-              <a href="#team-profile?id=${team.id}&edit=true" class="btn-primary" style="font-size:0.8rem; padding:4px 12px;"><i data-lucide="edit-3"></i> Edit Roster</a>
-            `}
-          ` : ''}
+      <!-- Team Statistics Grid -->
+      <div class="glass-card" style="padding:24px;">
+        <h3 style="color:var(--accent-gold); font-family:var(--font-display); margin-top:0; margin-bottom:20px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--glass-border); padding-bottom:10px;">
+          <i data-lucide="bar-chart-2" style="width:20px; height:20px; color:var(--accent-gold);"></i> Team Tournament Statistics
+        </h3>
+        
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px; margin-bottom:24px;">
+          <div style="background:rgba(255,255,255,0.02); padding:16px; border-radius:10px; border:1px solid var(--glass-border); text-align:center;">
+            <div style="font-size:0.75rem; color:var(--color-text-secondary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Matches Played</div>
+            <div style="font-size:1.8rem; font-weight:800; color:var(--color-text-primary);">${played}</div>
+          </div>
+          
+          <div style="background:rgba(255,255,255,0.02); padding:16px; border-radius:10px; border:1px solid var(--glass-border); text-align:center;">
+            <div style="font-size:0.75rem; color:var(--color-text-secondary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Win Rate</div>
+            <div style="font-size:1.8rem; font-weight:800; color:var(--accent-emerald);">${winRate}%</div>
+          </div>
         </div>
-        <div class="table-container">
-          <table class="standings-table" style="font-size:0.85rem;">
-            <thead>
-              <tr>
-                <th style="width:40px; text-align:center;">#</th>
-                <th>Player</th>
-                <th style="text-align:center;">Rating</th>
-                <th style="text-align:center;">Played</th>
-                <th style="text-align:center;">Goals</th>
-                <th style="text-align:center;">Assists</th>
-                <th style="text-align:center;">Clean Sheets</th>
-                <th style="text-align:center;">Cards</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${squadRowsHTML}
-            </tbody>
-          </table>
+
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:24px; text-align:center;">
+          <div style="background:rgba(0, 230, 118, 0.04); padding:12px; border-radius:8px; border:1px solid rgba(0, 230, 118, 0.15);">
+            <div style="font-size:0.7rem; color:var(--accent-emerald); font-weight:700; text-transform:uppercase;">Wins</div>
+            <div style="font-size:1.2rem; font-weight:800; margin-top:2px;">${won}</div>
+          </div>
+          <div style="background:rgba(255, 255, 255, 0.04); padding:12px; border-radius:8px; border:1px solid var(--glass-border);">
+            <div style="font-size:0.7rem; color:var(--color-text-secondary); font-weight:700; text-transform:uppercase;">Draws</div>
+            <div style="font-size:1.2rem; font-weight:800; margin-top:2px;">${drawn}</div>
+          </div>
+          <div style="background:rgba(255, 61, 0, 0.04); padding:12px; border-radius:8px; border:1px solid rgba(255, 61, 0, 0.15);">
+            <div style="font-size:0.7rem; color:var(--accent-red); font-weight:700; text-transform:uppercase;">Losses</div>
+            <div style="font-size:1.2rem; font-weight:800; margin-top:2px;">${lost}</div>
+          </div>
         </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:20px; display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:8px;">
+              <span style="color:var(--color-text-secondary);">Goals Scored (GF)</span>
+              <span style="font-weight:700; color:var(--color-text-primary);">${gf}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:8px;">
+              <span style="color:var(--color-text-secondary);">Goals Conceded (GA)</span>
+              <span style="font-weight:700; color:var(--color-text-primary);">${ga}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+              <span style="color:var(--color-text-secondary);">Goal Difference (GD)</span>
+              <span style="font-weight:700; color:${gd >= 0 ? 'var(--accent-emerald)' : 'var(--accent-red)'};">${gd > 0 ? '+' + gd : gd}</span>
+            </div>
+          </div>
+          
+          <div style="border-left:1px solid rgba(255,255,255,0.06); padding-left:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:8px;">
+              <span style="color:var(--color-text-secondary);">Clean Sheets</span>
+              <span style="font-weight:700; color:var(--accent-gold);">${cleanSheets}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+              <span style="color:var(--color-text-secondary);">Avg. Goals / Match</span>
+              <span style="font-weight:700; color:var(--color-text-primary);">${avgGoals}</span>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Match lists -->
@@ -1619,47 +1507,6 @@ function renderTeamProfile(params) {
 
     </div>
   `;
-
-  if (isEditing) {
-    const btnSave = document.getElementById('btn-save-roster');
-    if (btnSave) {
-      btnSave.onclick = () => {
-        const nameInputs = document.querySelectorAll('.edit-player-name');
-        const ratingInputs = document.querySelectorAll('.edit-player-rating');
-        
-        let hasError = false;
-        
-        nameInputs.forEach((input, index) => {
-          const playerId = input.getAttribute('data-id');
-          const pName = input.value.trim();
-          const pRating = parseInt(ratingInputs[index].value, 10);
-          
-          if (!pName) {
-            showToast("Player name cannot be empty", "error");
-            hasError = true;
-            return;
-          }
-          if (isNaN(pRating) || pRating < 50 || pRating > 99) {
-            showToast("Player rating must be between 50 and 99", "error");
-            hasError = true;
-            return;
-          }
-          
-          const player = team.squad.find(p => p.id === playerId);
-          if (player) {
-            player.name = pName;
-            player.rating = pRating;
-          }
-        });
-        
-        if (!hasError) {
-          saveState(state);
-          showToast(`Roster for ${team.name} updated successfully!`, 'success');
-          router.navigate('team-profile', { id: team.id });
-        }
-      };
-    }
-  }
 
   if (isEditingTeam) {
     const btnSaveTeam = document.getElementById('btn-save-team-details');
@@ -1698,82 +1545,118 @@ function renderStatistics() {
   const state = getState();
   const container = document.getElementById('statistics-section');
 
-  // Accumulate statistics
-  const scorersList = [];
-  const assistsList = [];
-  const cleanSheetsList = [];
-
-  state.teams.forEach(t => {
-    t.squad.forEach(p => {
-      if (p.goals > 0) {
-        scorersList.push({ pName: p.name, tName: t.name, tFlag: t.flag, val: p.goals });
-      }
-      if (p.assists > 0) {
-        assistsList.push({ pName: p.name, tName: t.name, tFlag: t.flag, val: p.assists });
-      }
-      if (p.cleanSheets > 0 && p.position === 'GK') {
-        cleanSheetsList.push({ pName: p.name, tName: t.name, tFlag: t.flag, val: p.cleanSheets });
-      }
-    });
-  });
-
-  scorersList.sort((a,b) => b.val - a.val);
-  assistsList.sort((a,b) => b.val - a.val);
-  cleanSheetsList.sort((a,b) => b.val - a.val);
-
-  function renderStatLeaderboard(title, icon, data, unitLabel) {
-    let rows = `<div style="text-align:center; color:var(--color-text-muted); font-size:0.85rem; padding: 40px 0;">No stats recorded. Complete match scores to populate.</div>`;
-    
-    if (data.length > 0) {
-      const maxVal = data[0].val || 1;
-      rows = data.slice(0, 5).map((item, idx) => {
-        const pct = Math.round((item.val / maxVal) * 100);
-        return `
-          <div style="margin-bottom:16px;">
-            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom:4px;">
-              <span style="display:flex; align-items:center; gap:8px;">
-                <span style="color:var(--accent-gold); font-family:var(--font-display); font-weight:700;">#${idx + 1}</span>
-                <span>${item.pName}</span>
-                <span style="font-size:0.8rem; color:var(--color-text-secondary); font-weight:normal;">(${item.tFlag} ${item.tName})</span>
-              </span>
-              <span style="color:var(--accent-emerald); font-weight:bold;">${item.val} ${unitLabel}</span>
-            </div>
-            <div style="width:100%; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden;">
-              <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, var(--accent-emerald), var(--accent-gold)); border-radius:3px;"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    return `
-      <div class="glass-card">
-        <h3 style="margin-bottom:20px; font-family:var(--font-display); display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--glass-border); padding-bottom:10px;">
-          <span>${icon}</span> ${title}
-        </h3>
-        <div>${rows}</div>
-      </div>
-    `;
-  }
-
   // Calculate team offensive stats
   const teamAttackList = state.teams.map(t => {
     const gf = state.matches.filter(m => m.status === 'completed' && (m.homeTeamId === t.id || m.awayTeamId === t.id))
       .reduce((sum, m) => sum + (m.homeTeamId === t.id ? m.homeScore : m.awayScore), 0);
-    return { name: t.name, flag: t.flag, val: gf };
+    return { id: t.id, name: t.name, flag: t.flag, val: gf };
   }).sort((a,b) => b.val - a.val);
 
+  const top1 = teamAttackList[0];
+  const top2 = teamAttackList[1];
+  const top3 = teamAttackList[2];
+
+  const hasStats = teamAttackList.some(t => t.val > 0);
+
+  let podiumHTML = '';
+  if (hasStats) {
+    podiumHTML = `
+      <div class="glass-card" style="margin-bottom:32px; background:linear-gradient(135deg, rgba(22,27,51,0.85), rgba(5,7,15,0.9)); border:1px solid var(--glass-border); padding:32px; border-radius:16px;">
+        <h3 style="font-family:var(--font-display); text-align:center; color:var(--accent-gold); margin-bottom:32px; text-transform:uppercase; letter-spacing:2px; font-size:1.1rem;">🔥 Top Scoring Teams Podium</h3>
+        
+        <div style="display:flex; justify-content:center; align-items:flex-end; gap:20px; max-width:600px; margin:0 auto; height:220px; padding-bottom:10px;">
+          
+          <!-- 2nd Place -->
+          ${top2 ? `
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; animation: scaleIn 0.8s forwards;">
+              <span style="font-size:2.8rem; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));">${top2.flag}</span>
+              <div style="font-weight:700; font-size:0.9rem; margin-top:8px; text-align:center; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:110px;">${top2.name}</div>
+              <div style="color:var(--accent-emerald); font-weight:700; font-size:0.85rem; margin-bottom:8px;">${top2.val} Goals</div>
+              <div style="width:100%; height:80px; background:linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border:1px solid rgba(255,255,255,0.15); border-radius:8px 8px 0 0; display:flex; justify-content:center; align-items:center; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+                <span style="font-family:var(--font-display); font-size:2rem; font-weight:900; color:rgba(255,255,255,0.5);">2</span>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- 1st Place -->
+          ${top1 ? `
+            <div style="flex:1.2; display:flex; flex-direction:column; align-items:center; animation: scaleIn 0.6s forwards;">
+              <span style="font-size:3.5rem; filter:drop-shadow(0 6px 10px rgba(0,0,0,0.4)); animation: trophyBounce 2s infinite ease-in-out;">👑</span>
+              <span style="font-size:3.5rem; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); margin-top:-15px;">${top1.flag}</span>
+              <div style="font-weight:800; font-size:1.05rem; margin-top:8px; text-align:center; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:130px; color:var(--accent-gold);">${top1.name}</div>
+              <div style="color:var(--accent-emerald); font-weight:800; font-size:0.95rem; margin-bottom:8px;">${top1.val} Goals</div>
+              <div style="width:100%; height:120px; background:linear-gradient(180deg, rgba(255,179,0,0.2), rgba(255,179,0,0.05)); border:2px solid var(--accent-gold); border-radius:8px 8px 0 0; display:flex; justify-content:center; align-items:center; box-shadow: 0 4px 25px rgba(255,179,0,0.15);">
+                <span style="font-family:var(--font-display); font-size:2.5rem; font-weight:900; color:var(--accent-gold);">1</span>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- 3rd Place -->
+          ${top3 ? `
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; animation: scaleIn 1s forwards;">
+              <span style="font-size:2.8rem; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));">${top3.flag}</span>
+              <div style="font-weight:700; font-size:0.9rem; margin-top:8px; text-align:center; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:110px;">${top3.name}</div>
+              <div style="color:var(--accent-emerald); font-weight:700; font-size:0.85rem; margin-bottom:8px;">${top3.val} Goals</div>
+              <div style="width:100%; height:60px; background:linear-gradient(180deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05)); border:1px solid rgba(205,127,50,0.25); border-radius:8px 8px 0 0; display:flex; justify-content:center; align-items:center; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+                <span style="font-family:var(--font-display); font-size:1.8rem; font-weight:900; color:rgba(205,127,50,0.5);">3</span>
+              </div>
+            </div>
+          ` : ''}
+
+        </div>
+      </div>
+    `;
+  }
+
+  const maxGoals = teamAttackList[0]?.val || 1;
+  
+  function renderTeamRowHTML(team, idx) {
+    const pct = maxGoals > 0 ? Math.round((team.val / maxGoals) * 100) : 0;
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:8px; margin-bottom:8px; font-size:0.85rem;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
+          <span style="font-family:var(--font-display); font-weight:700; color:var(--accent-gold); width:24px;">#${idx + 1}</span>
+          <span style="font-size:1.3rem;">${team.flag}</span>
+          <span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; flex:1; padding-right:10px;">${team.name}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; width:160px; justify-content:flex-end;">
+          <div style="flex:1; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden; display:block;">
+            <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, var(--accent-emerald), var(--accent-gold)); border-radius:3px;"></div>
+          </div>
+          <span style="color:var(--accent-emerald); font-weight:800; font-size:0.9rem; width:55px; text-align:right;">${team.val} Goals</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const leftColumnHTML = teamAttackList.slice(0, 16).map((t, i) => renderTeamRowHTML(t, i)).join('');
+  const rightColumnHTML = teamAttackList.slice(16, 32).map((t, i) => renderTeamRowHTML(t, i + 16)).join('');
+
   container.innerHTML = `
-    <h2 style="margin-bottom:20px; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
-      <i data-lucide="bar-chart-3" style="color:var(--accent-emerald);"></i> Tournament Statistics
+    <h2 style="margin-bottom:8px; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
+      <i data-lucide="bar-chart-3" style="color:var(--accent-emerald);"></i> Top Scoring Teams Leaderboard
     </h2>
-    <p style="color:var(--color-text-secondary); margin-bottom:24px;">Real-time esports dashboards tracking top scorers, assists leaders, clean sheets, and team statistics.</p>
-    
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:24px;">
-      ${renderStatLeaderboard('Golden Boot (Top Scorers)', '⚽', scorersList, 'Goals')}
-      ${renderStatLeaderboard('Assist Masters (Top Assists)', '👟', assistsList, 'Assists')}
-      ${renderStatLeaderboard('Golden Glove (Clean Sheets)', '🧤', cleanSheetsList, 'Clean Sheets')}
-      ${renderStatLeaderboard('Best Attack (Goals Scored)', '🔥', teamAttackList, 'Goals')}
+    <p style="color:var(--color-text-secondary); margin-bottom:24px; font-size:0.9rem;">
+      Real-time leaderboard tracking the overall goals scored by all 32 competing nations in the Copa de eFootball tournament.
+    </p>
+
+    <!-- Podium Visual for Top 3 -->
+    ${podiumHTML}
+
+    <!-- 32 Teams Leaderboard List -->
+    <div class="glass-card" style="padding:24px;">
+      <h3 style="margin-bottom:20px; font-family:var(--font-display); color:var(--accent-gold); border-bottom:1px solid var(--glass-border); padding-bottom:10px; display:flex; align-items:center; gap:8px;">
+        <i data-lucide="award" style="width:20px; height:20px;"></i> Full Tournament Scoring Standings
+      </h3>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:24px;">
+        <div>
+          ${leftColumnHTML}
+        </div>
+        <div>
+          ${rightColumnHTML}
+        </div>
+      </div>
     </div>
   `;
 
@@ -2007,11 +1890,6 @@ function renderAdmin(params) {
       const hName = hTeam ? hTeam.name : match.homeTeamId;
       const aName = aTeam ? aTeam.name : match.awayTeamId;
 
-      // Dropdown lists for scorers / card receivers
-      const homeSquad = hTeam ? hTeam.squad : [];
-      const awaySquad = aTeam ? aTeam.squad : [];
-      const allPlayers = [...homeSquad.map(p => ({ ...p, teamId: hTeam.id, tName: hName })), ...awaySquad.map(p => ({ ...p, teamId: aTeam.id, tName: aName }))];
-
       matchEditPanelHTML = `
         <div class="glass-card" style="margin-bottom:24px; border:1px solid var(--accent-gold);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -2051,56 +1929,6 @@ function renderAdmin(params) {
                 </div>
               </div>
             ` : ''}
-
-            <!-- Ref and POTM info -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
-              <div>
-                <label style="font-size:0.8rem; color:var(--color-text-secondary); display:block; margin-bottom:4px;">Referee</label>
-                <input type="text" id="inp-referee" value="${match.referee || ''}" style="width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none;">
-              </div>
-              <div>
-                <label style="font-size:0.8rem; color:var(--color-text-secondary); display:block; margin-bottom:4px;">Player of the Match</label>
-                <input type="text" id="inp-potm" value="${match.manOfTheMatch || ''}" style="width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none;">
-              </div>
-            </div>
-
-            <!-- Timeline events editor -->
-            <div style="margin-bottom:24px;">
-              <h4 style="font-size:0.9rem; color:var(--color-text-secondary); margin-bottom:10px;">Timeline Events</h4>
-              <div id="events-editor-list" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
-                ${match.timeline.map((ev, idx) => `
-                  <div class="event-editor-row" style="display:flex; gap:10px; align-items:center; background:rgba(255,255,255,0.01); padding:8px; border-radius:6px; border:1px solid var(--glass-border);">
-                    <span style="font-weight:700; color:var(--accent-gold); font-size:0.85rem;">${ev.minute}'</span>
-                    <span style="text-transform:capitalize; font-size:0.8rem; font-weight:600;">${ev.type.replace('_',' ')}</span>
-                    <span style="font-size:0.85rem;">${ev.playerName} (${ev.teamId})</span>
-                    ${ev.detail ? `<span style="font-size:0.75rem; color:var(--color-text-muted);"> - ${ev.detail}</span>` : ''}
-                    <button type="button" class="btn-remove-event" data-index="${idx}" style="margin-left:auto; background:none; border:none; color:var(--accent-red); cursor:pointer;">&times;</button>
-                  </div>
-                `).join('')}
-              </div>
-              
-              <!-- Add new event form inputs -->
-              <div style="display:flex; flex-wrap:wrap; gap:8px; background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; border:1px dashed var(--glass-border);">
-                <input type="number" id="inp-ev-minute" placeholder="Min" min="1" max="120" style="width:60px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:6px; color:var(--color-text-primary);">
-                
-                <select id="inp-ev-type" style="background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:6px; color:var(--color-text-primary);">
-                  <option value="goal">Goal ⚽</option>
-                  <option value="yellow_card">Yellow Card 🟨</option>
-                  <option value="red_card">Red Card 🟥</option>
-                </select>
-
-                <select id="inp-ev-player" style="background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:6px; color:var(--color-text-primary); flex:1;">
-                  ${allPlayers.map(p => `<option value="${p.name}|${p.teamId}">${p.name} (${p.tName}) - ${p.position}</option>`).join('')}
-                </select>
-
-                <select id="inp-ev-assist" style="background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:6px; color:var(--color-text-primary); flex:1;">
-                  <option value="">No Assist</option>
-                  ${allPlayers.map(p => `<option value="${p.name}">${p.name} (${p.tName})</option>`).join('')}
-                </select>
-
-                <button type="button" id="btn-add-event-row" class="btn-secondary" style="padding:6px 12px; font-size:0.8rem;">Add Event</button>
-              </div>
-            </div>
 
             <button type="submit" class="btn-primary" style="width:100%; justify-content:center;">Save Result</button>
           </form>
@@ -2311,56 +2139,6 @@ function renderAdmin(params) {
   // Attach dynamic event listeners for match editing panel
   if (editMatchId) {
     const match = state.matches.find(m => m.id === editMatchId);
-    let tempTimeline = match ? [...match.timeline] : [];
-
-    const btnAddEventRow = document.getElementById('btn-add-event-row');
-    if (btnAddEventRow) {
-      btnAddEventRow.addEventListener('click', () => {
-        const minVal = parseInt(document.getElementById('inp-ev-minute').value, 10);
-        const typeVal = document.getElementById('inp-ev-type').value;
-        const playerSelect = document.getElementById('inp-ev-player').value;
-        const assistVal = document.getElementById('inp-ev-assist').value;
-
-        if (!minVal || minVal < 0 || minVal > 120) {
-          showToast('Please enter a valid match minute (1-120).', 'error');
-          return;
-        }
-
-        const [playerName, playerTeamId] = playerSelect.split('|');
-
-        const newEvent = {
-          minute: minVal,
-          type: typeVal,
-          teamId: playerTeamId,
-          playerName: playerName
-        };
-
-        if (typeVal === 'goal' && assistVal) {
-          newEvent.detail = `Assist: ${assistVal}`;
-        }
-
-        tempTimeline.push(newEvent);
-        // Sort timeline by minute
-        tempTimeline.sort((a,b) => a.minute - b.minute);
-
-        // Re-render admin screen but keep match edits in state temporarily
-        match.timeline = tempTimeline;
-        saveState(state);
-        renderAdmin({ match: editMatchId });
-      });
-    }
-
-    // Attach timeline event row remove listeners
-    const btnRemoveEvents = document.querySelectorAll('.btn-remove-event');
-    btnRemoveEvents.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const idx = parseInt(e.currentTarget.getAttribute('data-index'), 10);
-        tempTimeline.splice(idx, 1);
-        match.timeline = tempTimeline;
-        saveState(state);
-        renderAdmin({ match: editMatchId });
-      });
-    });
 
     // Form match submit
     const formMatch = document.getElementById('form-match-result');
@@ -2369,8 +2147,6 @@ function renderAdmin(params) {
         e.preventDefault();
         const homeScore = parseInt(document.getElementById('inp-home-score').value, 10);
         const awayScore = parseInt(document.getElementById('inp-away-score').value, 10);
-        const refName = document.getElementById('inp-referee').value;
-        const potmName = document.getElementById('inp-potm').value;
         
         let penHome = null;
         let penAway = null;
@@ -2386,9 +2162,9 @@ function renderAdmin(params) {
           editMatchId,
           homeScore,
           awayScore,
-          tempTimeline,
-          refName,
-          potmName,
+          [],
+          '',
+          '',
           penHome,
           penAway
         );
