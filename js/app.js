@@ -1,6 +1,6 @@
 // js/app.js - Main Application Orchestrator
 
-import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig, saveFirebaseConfig, createDefaultState } from './database.js';
+import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig, saveFirebaseConfig, createDefaultState, saveAdminAccount } from './database.js';
 import { Router } from './router.js';
 import { GroupDrawManager } from './draw.js';
 import { generateGroupMatches, generateKnockoutMatches } from './scheduler.js';
@@ -1769,7 +1769,7 @@ function renderAdmin(params) {
   const container = document.getElementById('admin-section');
 
   // Admin authentication check
-  const isLoggedIn = sessionStorage.getItem('efootball_admin_logged_in') === 'true';
+  const isLoggedIn = localStorage.getItem('efootball_admin_logged_in') === 'true';
   if (!isLoggedIn) {
     const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
     const hasAdmin = accounts.length > 0;
@@ -1841,7 +1841,7 @@ function renderAdmin(params) {
 
     const formAuth = document.getElementById('form-admin-auth');
     if (formAuth) {
-      formAuth.onsubmit = (e) => {
+      formAuth.onsubmit = async (e) => {
         e.preventDefault();
         const user = document.getElementById('auth-username').value.trim();
         const pass = document.getElementById('auth-password').value;
@@ -1852,21 +1852,19 @@ function renderAdmin(params) {
             showToast("Passwords do not match!", "error");
             return;
           }
-          const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
-          if (accounts.some(acc => acc.username.toLowerCase() === user.toLowerCase())) {
-            showToast("Username already exists!", "error");
-            return;
+          try {
+            await saveAdminAccount(user, pass);
+            showToast("Admin account registered successfully! Please sign in.", "success");
+            router.navigate('admin', { authMode: 'login' });
+            router.handleRouting();
+          } catch (err) {
+            showToast(err.message || "Failed to register admin account.", "error");
           }
-          accounts.push({ username: user, password: pass });
-          localStorage.setItem('efootball_admin_accounts', JSON.stringify(accounts));
-          showToast("Admin account registered successfully! Please sign in.", "success");
-          router.navigate('admin', { authMode: 'login' });
-          router.handleRouting();
         } else {
           const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
           const matched = accounts.find(acc => acc.username.toLowerCase() === user.toLowerCase() && acc.password === pass);
           if (matched) {
-            sessionStorage.setItem('efootball_admin_logged_in', 'true');
+            localStorage.setItem('efootball_admin_logged_in', 'true');
             showToast(`Welcome back, ${matched.username}!`, "success");
             router.navigate('admin');
             router.handleRouting();
@@ -2351,7 +2349,7 @@ function renderAdmin(params) {
   const btnLogout = document.getElementById('btn-admin-logout');
   if (btnLogout) {
     btnLogout.onclick = () => {
-      sessionStorage.removeItem('efootball_admin_logged_in');
+      localStorage.removeItem('efootball_admin_logged_in');
       showToast("Logged out successfully.", "success");
       router.navigate('admin');
       router.handleRouting();

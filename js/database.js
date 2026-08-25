@@ -7,6 +7,9 @@ let db = null;
 let firebaseApp = null;
 let stateChangeCallback = null;
 let unsubscribeFirebase = null;
+let unsubscribeAdmins = null;
+let docFn = null;
+let setDocFn = null;
 
 const STATE_LOCAL_KEY = 'efootball_tournament_state';
 const FIREBASE_CONFIG_KEY = 'efootball_firebase_config';
@@ -40,54 +43,96 @@ export function saveFirebaseConfig(config) {
 }
 
 // Initialize Firebase if config exists
-export async function initFirebase(config, onStateUpdate) {
+export function initFirebase(config, onStateUpdate) {
   stateChangeCallback = onStateUpdate;
 
-  // Cleanup existing subscription if any
+  // Cleanup existing subscriptions if any
   if (unsubscribeFirebase) {
     unsubscribeFirebase();
     unsubscribeFirebase = null;
+  }
+  if (unsubscribeAdmins) {
+    unsubscribeAdmins();
+    unsubscribeAdmins = null;
   }
 
   if (!config) {
     db = null;
     firebaseApp = null;
-    return false;
+    docFn = null;
+    setDocFn = null;
+    return Promise.resolve(false);
   }
 
-  try {
-    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
-    const { getFirestore, doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+  return new Promise(async (resolve) => {
+    try {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+      const { getFirestore, doc, onSnapshot, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
 
-    firebaseApp = initializeApp(config);
-    db = getFirestore(firebaseApp);
+      firebaseApp = initializeApp(config);
+      db = getFirestore(firebaseApp);
+      docFn = doc;
+      setDocFn = setDoc;
 
-    // Setup real-time listener for tournament state
-    const docRef = doc(db, 'tournaments', 'efootball_2026');
-    unsubscribeFirebase = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const remoteState = docSnap.data();
-        // Recalculate local caches if needed
-        saveStateToLocal(remoteState);
-        if (stateChangeCallback) {
-          stateChangeCallback(remoteState);
+      let firstSnapshotProcessed = false;
+
+      // Setup real-time listener for tournament state
+      const docRef = docFn(db, 'tournaments', 'efootball_2026');
+      unsubscribeFirebase = onSnapshot(docRef, async (docSnap) => {
+        if (docSnap.exists()) {
+          const remoteState = docSnap.data();
+          saveStateToLocal(remoteState);
+          if (stateChangeCallback) {
+            stateChangeCallback(remoteState);
+          }
+        } else {
+          // If document doesn't exist on firebase yet, push our local state to remote
+          const localState = getLocalState();
+          await saveState(localState);
         }
-      } else {
-        // If document doesn't exist on firebase yet, push our local state to remote
-        const localState = getLocalState();
-        saveState(localState);
-      }
-    }, (error) => {
-      console.warn("Firebase snapshot error, falling back to LocalStorage:", error);
-    });
+        
+        if (!firstSnapshotProcessed) {
+          firstSnapshotProcessed = true;
+          resolve(true);
+        }
+      }, (error) => {
+        console.warn("Firebase snapshot error, falling back to LocalStorage:", error);
+        if (!firstSnapshotProcessed) {
+          firstSnapshotProcessed = true;
+          resolve(false);
+        }
+      });
 
-    return true;
-  } catch (err) {
-    console.error("Failed to initialize Firebase:", err);
-    db = null;
-    firebaseApp = null;
-    return false;
-  }
+      // Setup real-time listener for admin accounts
+      const adminDocRef = docFn(db, 'tournaments', 'efootball_2026_admins');
+      unsubscribeAdmins = onSnapshot(adminDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.accounts) {
+            localStorage.setItem('efootball_admin_accounts', JSON.stringify(data.accounts));
+          }
+        } else {
+          // Push pre-existing local accounts to Firebase if they exist
+          const localAccounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+          if (localAccounts.length > 0) {
+            setDocFn(adminDocRef, { accounts: localAccounts }).catch(err => {
+              console.warn("Failed to push initial admin accounts to Firebase:", err);
+            });
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase admin snapshot error:", error);
+      });
+
+    } catch (err) {
+      console.error("Failed to initialize Firebase:", err);
+      db = null;
+      firebaseApp = null;
+      docFn = null;
+      setDocFn = null;
+      resolve(false);
+    }
+  });
 }
 
 // Fallback Local Storage functions
@@ -138,11 +183,10 @@ export async function saveState(state) {
   
   saveStateToLocal(updatedState);
 
-  if (db) {
+  if (db && docFn && setDocFn) {
     try {
-      const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
-      const docRef = doc(db, 'tournaments', 'efootball_2026');
-      await setDoc(docRef, updatedState);
+      const docRef = docFn(db, 'tournaments', 'efootball_2026');
+      await setDocFn(docRef, updatedState);
     } catch (err) {
       console.error("Firebase save failed, local state updated:", err);
     }
@@ -150,6 +194,25 @@ export async function saveState(state) {
 
   if (stateChangeCallback) {
     stateChangeCallback(updatedState);
+  }
+}
+
+// Save admin credentials to localStorage and Firestore
+export async function saveAdminAccount(username, password) {
+  const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+  if (accounts.some(acc => acc.username.toLowerCase() === username.toLowerCase())) {
+    throw new Error("Username already exists!");
+  }
+  accounts.push({ username, password });
+  localStorage.setItem('efootball_admin_accounts', JSON.stringify(accounts));
+
+  if (db && docFn && setDocFn) {
+    try {
+      const docRef = docFn(db, 'tournaments', 'efootball_2026_admins');
+      await setDocFn(docRef, { accounts });
+    } catch (err) {
+      console.error("Firebase admin save failed:", err);
+    }
   }
 }
 
