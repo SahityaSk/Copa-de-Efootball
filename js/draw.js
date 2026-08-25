@@ -5,10 +5,13 @@ import { saveState } from './database.js';
 // Shuffle helper
 function shuffleArray(arr) {
   const newArr = [...arr];
+
   for (let i = newArr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
+
     [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
   }
+
   return newArr;
 }
 
@@ -17,126 +20,371 @@ export class GroupDrawManager {
     this.state = state;
     this.onUpdate = onUpdate;
     this.onComplete = onComplete;
+
     this.timer = null;
     this.isDrawing = false;
-    this.drawSequence = []; // Array of { teamId, groupLetter, potIndex }
+
+    this.drawSequence = [];
     this.currentStep = 0;
+
+    // Used to keep the page from jumping during re-render
+    this.savedScrollX = 0;
+    this.savedScrollY = 0;
   }
 
-  // Pre-calculate the entire draw sequence so we can animate it step-by-step
+  // ------------------------------------------------------------
+  // Scroll protection
+  // ------------------------------------------------------------
+
+  saveScrollPosition() {
+    this.savedScrollX = window.scrollX || window.pageXOffset || 0;
+    this.savedScrollY = window.scrollY || window.pageYOffset || 0;
+  }
+
+  restoreScrollPosition() {
+    const x = this.savedScrollX;
+    const y = this.savedScrollY;
+
+    // Restore immediately
+    window.scrollTo(x, y);
+
+    // Restore after DOM rendering
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        left: x,
+        top: y,
+        behavior: 'auto'
+      });
+
+      // Extra frame protection for DOM/layout changes
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          left: x,
+          top: y,
+          behavior: 'auto'
+        });
+      });
+    });
+  }
+
+  // ------------------------------------------------------------
+  // Prepare draw sequence
+  // ------------------------------------------------------------
+
   prepareDraw() {
     const pots = {
-      1: shuffleArray(this.state.drawState.pots[1]),
-      2: shuffleArray(this.state.drawState.pots[2]),
-      3: shuffleArray(this.state.drawState.pots[3]),
-      4: shuffleArray(this.state.drawState.pots[4])
+      1: shuffleArray(this.state.drawState.pots[1] || []),
+      2: shuffleArray(this.state.drawState.pots[2] || []),
+      3: shuffleArray(this.state.drawState.pots[3] || []),
+      4: shuffleArray(this.state.drawState.pots[4] || [])
     };
 
-    const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const groupLetters = [
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'H'
+    ];
+
     const sequence = [];
 
-    // Draw Pot 1 into Groups A-H
+    // ----------------------------------------------------------
+    // Pot 1 -> Groups A-H
+    // ----------------------------------------------------------
+
     pots[1].forEach((teamId, idx) => {
-      sequence.push({ teamId, groupLetter: groupLetters[idx], potIndex: 1 });
+      if (idx < groupLetters.length) {
+        sequence.push({
+          teamId,
+          groupLetter: groupLetters[idx],
+          potIndex: 1
+        });
+      }
     });
 
-    // Draw Pot 2 into Groups A-H
+    // ----------------------------------------------------------
+    // Pot 2 -> Groups A-H
+    // ----------------------------------------------------------
+
     pots[2].forEach((teamId, idx) => {
-      sequence.push({ teamId, groupLetter: groupLetters[idx], potIndex: 2 });
+      if (idx < groupLetters.length) {
+        sequence.push({
+          teamId,
+          groupLetter: groupLetters[idx],
+          potIndex: 2
+        });
+      }
     });
 
-    // Draw Pot 3 into Groups A-H
+    // ----------------------------------------------------------
+    // Pot 3 -> Groups A-H
+    // ----------------------------------------------------------
+
     pots[3].forEach((teamId, idx) => {
-      sequence.push({ teamId, groupLetter: groupLetters[idx], potIndex: 3 });
+      if (idx < groupLetters.length) {
+        sequence.push({
+          teamId,
+          groupLetter: groupLetters[idx],
+          potIndex: 3
+        });
+      }
     });
 
-    // Draw Pot 4 into Groups A-H
+    // ----------------------------------------------------------
+    // Pot 4 -> Groups A-H
+    // ----------------------------------------------------------
+
     pots[4].forEach((teamId, idx) => {
-      sequence.push({ teamId, groupLetter: groupLetters[idx], potIndex: 4 });
+      if (idx < groupLetters.length) {
+        sequence.push({
+          teamId,
+          groupLetter: groupLetters[idx],
+          potIndex: 4
+        });
+      }
     });
 
     this.drawSequence = sequence;
     this.currentStep = 0;
   }
 
+  // ------------------------------------------------------------
+  // Start cinematic draw
+  // ------------------------------------------------------------
+
   start() {
-    if (this.isDrawing) return;
+    // Prevent starting twice
+    if (this.isDrawing) {
+      return;
+    }
+
+    // Stop any existing timer
+    this.stop();
+
+    // IMPORTANT:
+    // Remember where the user currently is before starting.
+    this.saveScrollPosition();
+
     this.isDrawing = true;
+
     this.prepareDraw();
 
-    // Set status to drawing
+    // Set status
     this.state.status = 'drawing';
     this.state.drawState.completed = false;
     this.state.drawState.drawHistory = [];
-    
-    // Clear groups
-    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    letters.forEach(g => {
-      this.state.groups[g] = [];
-      this.state.drawState.assignedGroups[g] = [];
+
+    // ----------------------------------------------------------
+    // Clear existing groups
+    // ----------------------------------------------------------
+
+    const letters = [
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'H'
+    ];
+
+    letters.forEach(group => {
+      this.state.groups[group] = [];
+      this.state.drawState.assignedGroups[group] = [];
     });
 
+    // Reset team group assignments
+    if (Array.isArray(this.state.teams)) {
+      this.state.teams.forEach(team => {
+        team.group = null;
+      });
+    }
+
     saveState(this.state);
-    this.runNextStep();
+
+    // Restore scroll after initial state update
+    this.restoreScrollPosition();
+
+    // Start animation
+    requestAnimationFrame(() => {
+      this.runNextStep();
+    });
   }
 
+  // ------------------------------------------------------------
+  // Run next draw step
+  // ------------------------------------------------------------
+
   runNextStep() {
+    if (!this.isDrawing) {
+      return;
+    }
+
+    // Draw complete
     if (this.currentStep >= this.drawSequence.length) {
       this.completeDraw();
       return;
     }
 
     const step = this.drawSequence[this.currentStep];
-    const team = this.state.teams.find(t => t.id === step.teamId);
-    
-    // Add to history and assign to group
+
+    // Find team safely
+    const team = this.state.teams
+      ? this.state.teams.find(t => t.id === step.teamId)
+      : null;
+
+    // ----------------------------------------------------------
+    // Save current scroll position BEFORE changing the state
+    // ----------------------------------------------------------
+
+    this.saveScrollPosition();
+
+    // ----------------------------------------------------------
+    // Add to draw history
+    // ----------------------------------------------------------
+
     this.state.drawState.drawHistory.push({
       teamId: step.teamId,
       group: step.groupLetter,
       pot: step.potIndex
     });
 
+    // ----------------------------------------------------------
+    // Assign team to group
+    // ----------------------------------------------------------
+
+    if (!this.state.groups[step.groupLetter]) {
+      this.state.groups[step.groupLetter] = [];
+    }
+
+    if (!this.state.drawState.assignedGroups[step.groupLetter]) {
+      this.state.drawState.assignedGroups[step.groupLetter] = [];
+    }
+
     this.state.groups[step.groupLetter].push(step.teamId);
-    this.state.drawState.assignedGroups[step.groupLetter].push(step.teamId);
-    team.group = step.groupLetter;
+
+    this.state.drawState.assignedGroups[
+      step.groupLetter
+    ].push(step.teamId);
+
+    // Update team group
+    if (team) {
+      team.group = step.groupLetter;
+    }
+
+    // ----------------------------------------------------------
+    // Update draw state
+    // ----------------------------------------------------------
 
     this.state.drawState.currentPotIndex = step.potIndex;
     this.state.drawState.currentTeamIndex = this.currentStep;
 
     this.currentStep++;
-    
+
+    // Save state
     saveState(this.state);
-    
+
+    // ----------------------------------------------------------
+    // Update UI
+    // ----------------------------------------------------------
+
     if (this.onUpdate) {
-      // Pass the current team and group to trigger specific animations in UI
-      this.onUpdate(this.state, team, step.groupLetter);
+      this.onUpdate(
+        this.state,
+        team,
+        step.groupLetter
+      );
     }
 
-    // Interval between steps (1.2 seconds for dramatic suspense)
+    // ----------------------------------------------------------
+    // Restore scroll AFTER UI update
+    // ----------------------------------------------------------
+
+    this.restoreScrollPosition();
+
+    // ----------------------------------------------------------
+    // Schedule next team
+    // ----------------------------------------------------------
+
     this.timer = setTimeout(() => {
-      this.runNextStep();
+      if (!this.isDrawing) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        this.runNextStep();
+      });
     }, 1200);
   }
 
+  // ------------------------------------------------------------
+  // Quick draw
+  // ------------------------------------------------------------
+
   quickDraw() {
+    // Stop cinematic animation
     this.stop();
+
+    // Remember current scroll
+    this.saveScrollPosition();
+
+    // Prepare randomized sequence
     this.prepareDraw();
-    
+
+    // Update state
     this.state.status = 'draw-completed';
     this.state.drawState.completed = true;
     this.state.drawState.drawHistory = [];
-    
-    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    letters.forEach(g => {
-      this.state.groups[g] = [];
-      this.state.drawState.assignedGroups[g] = [];
+
+    const letters = [
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'H'
+    ];
+
+    // Clear groups
+    letters.forEach(group => {
+      this.state.groups[group] = [];
+      this.state.drawState.assignedGroups[group] = [];
     });
 
+    // Reset team groups
+    if (Array.isArray(this.state.teams)) {
+      this.state.teams.forEach(team => {
+        team.group = null;
+      });
+    }
+
+    // ----------------------------------------------------------
+    // Assign entire draw immediately
+    // ----------------------------------------------------------
+
     this.drawSequence.forEach(step => {
-      this.state.groups[step.groupLetter].push(step.teamId);
-      this.state.drawState.assignedGroups[step.groupLetter].push(step.teamId);
-      const team = this.state.teams.find(t => t.id === step.teamId);
-      if (team) team.group = step.groupLetter;
+      this.state.groups[step.groupLetter].push(
+        step.teamId
+      );
+
+      this.state.drawState.assignedGroups[
+        step.groupLetter
+      ].push(step.teamId);
+
+      const team = this.state.teams
+        ? this.state.teams.find(t => t.id === step.teamId)
+        : null;
+
+      if (team) {
+        team.group = step.groupLetter;
+      }
 
       this.state.drawState.drawHistory.push({
         teamId: step.teamId,
@@ -145,29 +393,85 @@ export class GroupDrawManager {
       });
     });
 
+    // Update current indexes
+    if (this.drawSequence.length > 0) {
+      const lastStep =
+        this.drawSequence[this.drawSequence.length - 1];
+
+      this.state.drawState.currentPotIndex =
+        lastStep.potIndex;
+
+      this.state.drawState.currentTeamIndex =
+        this.drawSequence.length - 1;
+    }
+
     saveState(this.state);
-    
+
+    // Restore scroll after state/UI update
+    this.restoreScrollPosition();
+
+    // Complete callback
     if (this.onComplete) {
-      this.onComplete(this.state);
+      requestAnimationFrame(() => {
+        this.restoreScrollPosition();
+
+        this.onComplete(this.state);
+
+        this.restoreScrollPosition();
+      });
     }
   }
+
+  // ------------------------------------------------------------
+  // Stop animation
+  // ------------------------------------------------------------
 
   stop() {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
+
     this.isDrawing = false;
   }
 
+  // ------------------------------------------------------------
+  // Complete draw
+  // ------------------------------------------------------------
+
   completeDraw() {
+    // Clear timer
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+
+    // Remember scroll before final UI update
+    this.saveScrollPosition();
+
     this.isDrawing = false;
+
+    // Update state
     this.state.status = 'draw-completed';
     this.state.drawState.completed = true;
+
     saveState(this.state);
 
+    // Restore scroll
+    this.restoreScrollPosition();
+
+    // Notify UI
     if (this.onComplete) {
-      this.onComplete(this.state);
+      requestAnimationFrame(() => {
+        this.restoreScrollPosition();
+
+        this.onComplete(this.state);
+
+        // Final scroll protection
+        requestAnimationFrame(() => {
+          this.restoreScrollPosition();
+        });
+      });
     }
   }
 }
