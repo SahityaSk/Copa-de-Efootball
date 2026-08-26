@@ -35,6 +35,11 @@ let currentDrawManager = null;
 let activeGroupTab = 'A';
 let activeFixtureDayTab = 1;
 
+// Helper: Check if user is logged in as admin
+export function isAdminLoggedIn() {
+  return localStorage.getItem('efootball_admin_logged_in') === 'true';
+}
+
 // Init logic on window load
 window.addEventListener('DOMContentLoaded', async () => {
   // Try loading firebase
@@ -291,6 +296,7 @@ function initCountdown() {
 function renderDraw() {
   const state = getState();
   const container = document.getElementById('draw-section');
+  const isAdmin = isAdminLoggedIn();
 
   const isDrawn = state.status !== 'pre-draw' && state.status !== 'drawing';
   
@@ -299,23 +305,29 @@ function renderDraw() {
     const isReadyForDraw = state.teams.length === 32;
     drawStateHTML = `
       <div style="text-align:center; margin-bottom: 24px;">
-        <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Click Start to draw them into Groups A-H.</p>
+        <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Draw them into Groups A-H.</p>
         
-        ${!isReadyForDraw ? `
-          <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
-            <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
-              ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
-            </p>
-            <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
-              Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
-            </p>
+        ${!isAdmin ? `
+          <div class="admin-only-notice">
+            🔒 Group Draw controls are restricted to Administrators. Please <a href="#admin" style="color:var(--accent-gold); font-weight:700; text-decoration:underline;">Sign In as Admin</a> to conduct or modify the draw.
           </div>
-        ` : ''}
+        ` : `
+          ${!isReadyForDraw ? `
+            <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
+              <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
+                ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
+              </p>
+              <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
+                Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
+              </p>
+            </div>
+          ` : ''}
 
-        <div style="display:flex; justify-content:center; gap:12px;">
-          <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
-          <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
-        </div>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
+            <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
+          </div>
+        `}
       </div>
     `;
   } else if (state.status === 'drawing') {
@@ -325,8 +337,8 @@ function renderDraw() {
           <div class="badge-live"><span class="live-dot"></span> DRAWING LIVE</div>
           <h3 id="draw-animation-banner" style="color:var(--accent-gold);">Selecting Team...</h3>
         </div>
-        <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-top:8px;">Teams are being assigned sequentially. Please wait or click skip.</p>
-        <button id="btn-skip-draw" class="btn-secondary" style="margin-top:12px; font-size:0.8rem; padding:4px 12px;">Skip Animation</button>
+        <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-top:8px;">Teams are being assigned sequentially.</p>
+        ${isAdmin ? '<button id="btn-skip-draw" class="btn-secondary" style="margin-top:12px; font-size:0.8rem; padding:4px 12px;">Skip Animation</button>' : ''}
       </div>
     `;
   } else {
@@ -336,7 +348,7 @@ function renderDraw() {
       <div style="text-align:center; margin-bottom: 32px; background:rgba(0, 230, 118, 0.1); padding:20px; border-radius:16px; border:1px solid var(--accent-emerald);">
         <h3 style="color:var(--accent-emerald); font-family:var(--font-display); font-size:1.4rem; margin-bottom:8px;">🏆 DRAW COMPLETED</h3>
         <p style="color:var(--color-text-secondary); font-size:0.9rem; margin-bottom: 16px;">Groups A to H have been successfully populated with 4 balanced seed teams each.</p>
-        ${!hasFixtures ? '<button id="btn-gen-fixtures" class="btn-primary"><i data-lucide="calendar"></i> Generate Fixtures Calendar</button>' : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>'}
+        ${!hasFixtures ? (isAdmin ? '<button id="btn-gen-fixtures" class="btn-primary"><i data-lucide="calendar"></i> Generate Fixtures Calendar</button>' : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>') : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>'}
       </div>
     `;
   }
@@ -566,8 +578,10 @@ function renderGroups() {
         
         <div style="grid-column: 1 / -1; display:flex; justify-content:center; gap:10px; margin-top:8px; border-top:1px solid rgba(255,255,255,0.02); padding-top:8px;">
           <a href="#match-center?id=${m.id}" style="font-size:0.75rem; color:var(--accent-emerald);">Details</a>
-          <span style="color:var(--color-text-muted); font-size:0.75rem;">|</span>
-          <a href="#admin?match=${m.id}" style="font-size:0.75rem; color:var(--accent-gold);">Result</a>
+          ${isAdminLoggedIn() ? `
+            <span style="color:var(--color-text-muted); font-size:0.75rem;">|</span>
+            <a href="#admin?match=${m.id}" style="font-size:0.75rem; color:var(--accent-gold);">Result</a>
+          ` : ''}
         </div>
       </div>
     `;
@@ -579,7 +593,7 @@ function renderGroups() {
     </h2>
     ${tabsHTML}
     
-    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px; align-items:start;">
+    <div class="responsive-split-grid">
       <!-- Standings Table -->
       <div class="glass-card" style="padding:16px;">
         <h3 style="margin-bottom:16px; color:var(--accent-gold); font-family:var(--font-display);">Group ${activeGroupTab} Standings</h3>
@@ -699,7 +713,7 @@ function renderFixtures() {
           <span>🏟️ ${m.stadium}</span>
           <div style="display:flex; gap:12px;">
             <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald); font-weight:600;">Match Details</a>
-            <a href="#admin?match=${m.id}" style="color:var(--accent-gold); font-weight:600;">Enter Result</a>
+            ${isAdminLoggedIn() ? `<a href="#admin?match=${m.id}" style="color:var(--accent-gold); font-weight:600;">Enter Result</a>` : ''}
           </div>
         </div>
       </div>
@@ -1041,7 +1055,7 @@ function renderKnockout() {
     const isTied = isDone && m.homeScore === m.awayScore;
     
     const homeIsWinner = isDone && (m.homeScore > m.awayScore || (isTied && m.homePenalties > m.awayPenalties));
-    const awayIsWinner = isDone && (m.awayScore > m.homeScore || (isTied && m.awayPenalties > m.awayPenalties));
+    const awayIsWinner = isDone && (m.awayScore > m.homeScore || (isTied && m.awayPenalties > m.homePenalties));
 
     return `
       <div class="bracket-match" data-match-id="${m.id}" style="${isPreview ? 'opacity: 0.8; border-style: dashed;' : ''}">
@@ -1079,7 +1093,7 @@ function renderKnockout() {
           <!-- Links -->
           <div style="display:flex; justify-content:space-between; font-size:0.7rem; border-top:1px solid rgba(255,255,255,0.02); padding: 4px 10px; background:rgba(0,0,0,0.1);">
             <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald);">Details</a>
-            <a href="#admin?match=${m.id}" style="color:var(--accent-gold);">Result</a>
+            ${isAdminLoggedIn() ? `<a href="#admin?match=${m.id}" style="color:var(--accent-gold);">Result</a>` : ''}
           </div>
         ` : ''}
       </div>
@@ -1423,7 +1437,7 @@ function renderTeamProfile(params) {
                 <span>Team Rating: <b>${team.squad && team.squad[5] ? team.squad[5].rating : 85} OVR</b></span>
               </div>
             </div>
-            ${state.status === 'pre-draw' ? `
+            ${state.status === 'pre-draw' && isAdminLoggedIn() ? `
               <a href="#team-profile?id=${team.id}&editTeam=true" class="btn-primary" style="font-size:0.8rem; padding:6px 12px; display:flex; align-items:center; gap:6px;"><i data-lucide="edit"></i> Edit Identity</a>
             ` : ''}
           </div>
@@ -1432,7 +1446,7 @@ function renderTeamProfile(params) {
     `}
 
     <!-- Stats and Fixtures lists -->
-    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px; align-items:start;">
+    <div class="responsive-split-grid">
       
       <!-- Team Statistics Grid -->
       <div class="glass-card" style="padding:24px;">
@@ -2045,7 +2059,7 @@ function renderAdmin(params) {
     <!-- Dynamic Edit matching score sub-panel -->
     ${matchEditPanelHTML}
 
-    <div style="display:grid; grid-template-columns: 1.8fr 1.2fr; gap:24px; align-items:start;">
+    <div class="responsive-split-grid-admin">
       
       <!-- List of Matches -->
       <div>
@@ -2101,9 +2115,6 @@ function renderAdmin(params) {
             </div>
           </div>
         ` : ''}
-
-        <!-- Firebase config Form -->
-        ${fbConfigHTML}
 
         <!-- Custom team Form -->
         ${customTeamsListHTML}

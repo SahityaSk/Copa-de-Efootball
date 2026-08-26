@@ -15,23 +15,19 @@ const STATE_LOCAL_KEY = 'efootball_tournament_state';
 const FIREBASE_CONFIG_KEY = 'efootball_firebase_config';
 
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCQPXIax92p76a1NigsqXYt1DOVzfuweN0",
-  authDomain: "copa-de-efootball.firebaseapp.com",
-  projectId: "copa-de-efootball",
-  storageBucket: "copa-de-efootball.firebasestorage.app",
-  messagingSenderId: "441201558487",
-  appId: "1:441201558487:web:8830c4149d006733498192",
-  measurementId: "G-6B8C57F1DV"
+  apiKey: "AIzaSyBrjaIlXB0Yi9MvqigN6Ymq327JDVxZvTg",
+  authDomain: "sahitya-b2600.firebaseapp.com",
+  projectId: "sahitya-b2600",
+  storageBucket: "sahitya-b2600.firebasestorage.app",
+  messagingSenderId: "806116671407",
+  appId: "1:806116671407:web:11de75de9c40ac6f1d395a"
 };
 
-// Load Firebase configuration from localStorage, falling back to default configuration
+// Load Firebase configuration (always uses hardcoded new project credentials)
 export function getFirebaseConfig() {
-  const config = localStorage.getItem(FIREBASE_CONFIG_KEY);
-  if (config) {
-    return JSON.parse(config);
-  }
   return DEFAULT_FIREBASE_CONFIG;
 }
+
 
 // Save Firebase configuration to localStorage
 export function saveFirebaseConfig(config) {
@@ -66,10 +62,16 @@ export function initFirebase(config, onStateUpdate) {
 
   return new Promise(async (resolve) => {
     try {
-      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+      const { initializeApp, getApps, getApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
       const { getFirestore, doc, onSnapshot, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
 
-      firebaseApp = initializeApp(config);
+      const apps = getApps();
+      if (apps.length > 0) {
+        firebaseApp = getApp();
+      } else {
+        firebaseApp = initializeApp(config);
+      }
+
       db = getFirestore(firebaseApp);
       docFn = doc;
       setDocFn = setDoc;
@@ -186,7 +188,9 @@ export async function saveState(state) {
   if (db && docFn && setDocFn) {
     try {
       const docRef = docFn(db, 'tournaments', 'efootball_2026');
-      await setDocFn(docRef, updatedState);
+      // Clean undefined values for Firestore compatibility
+      const sanitizedState = JSON.parse(JSON.stringify(updatedState));
+      await setDocFn(docRef, sanitizedState);
     } catch (err) {
       console.error("Firebase save failed, local state updated:", err);
     }
@@ -255,7 +259,7 @@ export function recalculateStatsAndStandings(state) {
         if (gk) gk.cleanSheets += 1;
       }
 
-      // Record player appearances based on lineups
+      // Record player appearances and cards from match lineups
       if (match.homeLineup) {
         match.homeLineup.forEach(lp => {
           const player = homeTeam.squad.find(p => p.id === lp.playerId);
@@ -277,7 +281,7 @@ export function recalculateStatsAndStandings(state) {
         });
       }
 
-      // Record goals & assists from match timeline events
+      // Record goals & assists from match timeline events (cards handled via lineup to avoid double counting)
       match.timeline.forEach(event => {
         if (event.type === 'goal') {
           const team = event.teamId === homeTeam.id ? homeTeam : awayTeam;
@@ -289,14 +293,6 @@ export function recalculateStatsAndStandings(state) {
             const assister = team.squad.find(p => p.name === assistName);
             if (assister) assister.assists += 1;
           }
-        } else if (event.type === 'yellow_card') {
-          const team = event.teamId === homeTeam.id ? homeTeam : awayTeam;
-          const player = team.squad.find(p => p.name === event.playerName);
-          if (player) player.yellowCards += 1;
-        } else if (event.type === 'red_card') {
-          const team = event.teamId === homeTeam.id ? homeTeam : awayTeam;
-          const player = team.squad.find(p => p.name === event.playerName);
-          if (player) player.redCards += 1;
         }
       });
     }
@@ -361,8 +357,8 @@ export function getGroupStandings(state, groupLetter) {
   // 1. Points
   // 2. Goal Difference
   // 3. Goals For
-  // 4. Head to Head result (simplified: who won when they played)
-  // 5. Team overall rating (esports feel)
+  // 4. Head to Head result
+  // 5. Team overall rating average
   standings.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.gd !== a.gd) return b.gd - a.gd;
@@ -385,14 +381,18 @@ export function getGroupStandings(state, groupLetter) {
       }
     }
 
-    // Esports rating fallback
-    const ratingA = teams.find(t => t.id === a.teamId)?.rating || 0;
-    const ratingB = teams.find(t => t.id === b.teamId)?.rating || 0;
+    // Esports rating average fallback
+    const getTeamOvr = tId => {
+      const team = teams.find(t => t.id === tId);
+      if (!team || !team.squad || team.squad.length === 0) return 80;
+      return Math.round(team.squad.reduce((sum, p) => sum + (p.rating || 80), 0) / team.squad.length);
+    };
+    const ratingA = getTeamOvr(a.teamId);
+    const ratingB = getTeamOvr(b.teamId);
     return ratingB - ratingA;
   });
 
   // Determine qualification flags (top 2 qualify, bottom 2 eliminated if group matches completed)
-  // Or check if they are currently in qualified slots
   standings.forEach((row, idx) => {
     if (idx < 2) {
       row.qualified = true;
@@ -403,3 +403,4 @@ export function getGroupStandings(state, groupLetter) {
 
   return standings;
 }
+

@@ -1,6 +1,6 @@
 // js/admin.js - Admin & Tournament Management Logic
 
-import { saveState, createDefaultState } from './database.js';
+import { saveState, createDefaultState, getGroupStandings } from './database.js';
 import { generateGroupMatches, generateKnockoutMatches, updateKnockoutProgression } from './scheduler.js';
 
 // Reset tournament to pre-draw state
@@ -41,8 +41,8 @@ export function editMatchSchedule(state, matchId, date, time, stadium) {
 
 // Add a new custom team
 export function addCustomTeam(state, name, flag, ratingValue) {
-  if (state.teams.length >= 32 && state.status !== 'pre-draw') {
-    throw new Error('Tournament cannot exceed 32 teams after draw has commenced.');
+  if (state.teams.length >= 32) {
+    throw new Error('Tournament cannot exceed 32 teams.');
   }
 
   const rating = parseInt(ratingValue, 10) || 80;
@@ -93,8 +93,9 @@ export function removeTeamFromState(state, teamId) {
 
 // Rebuild seed pots based on team ratings
 function rebuildPots(state) {
-  // Sort teams by rating
-  const sorted = [...state.teams].sort((a, b) => b.squad[5].rating - a.squad[5].rating);
+  // Sort teams by squad average rating
+  const getTeamRating = t => t.squad && t.squad.length > 0 ? Math.round(t.squad.reduce((s, p) => s + p.rating, 0) / t.squad.length) : 80;
+  const sorted = [...state.teams].sort((a, b) => getTeamRating(b) - getTeamRating(a));
   
   // Re-populate Pots 1 to 4
   const potSize = Math.ceil(sorted.length / 4) || 8;
@@ -208,6 +209,9 @@ export function enterMatchResult(
       // Tie breaker using penalty shootouts
       const pHome = parseInt(homePenalties, 10) || 0;
       const pAway = parseInt(awayPenalties, 10) || 0;
+      if (pHome === pAway) {
+        throw new Error("Penalty shootout cannot end in a draw. One team must win.");
+      }
       if (pHome > pAway) {
         winnerId = match.homeTeamId;
         loserId = match.awayTeamId;
@@ -245,23 +249,21 @@ function checkGroupStageCompletion(state) {
     state.status = 'knockouts';
     
     // Recalculate standings for all groups
-    import('./database.js').then(({ getGroupStandings }) => {
-      const standings = {};
-      const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-      letters.forEach(g => {
-        standings[g] = getGroupStandings(state, g);
-      });
-
-      // Generate the Round of 16 matches
-      const updatedMatches = generateKnockoutMatches(state, standings);
-      state.matches = updatedMatches;
-      saveState(state);
+    const standings = {};
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    letters.forEach(g => {
+      standings[g] = getGroupStandings(state, g);
     });
+
+    // Generate the Round of 16 matches
+    const updatedMatches = generateKnockoutMatches(state, standings);
+    state.matches = updatedMatches;
   } else {
     // If not all matches are completed but fixtures were generated, state is 'group-stage'
     state.status = 'group-stage';
   }
 }
+
 
 // Simulate a single match with realistic scoring/events
 export function simulateMatch(state, match) {
