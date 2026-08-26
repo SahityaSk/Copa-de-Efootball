@@ -15,12 +15,12 @@ const STATE_LOCAL_KEY = 'efootball_tournament_state';
 const FIREBASE_CONFIG_KEY = 'efootball_firebase_config';
 
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBrjaIlXB0Yi9MvqigN6Ymq327JDVxZvTg",
-  authDomain: "sahitya-b2600.firebaseapp.com",
-  projectId: "sahitya-b2600",
-  storageBucket: "sahitya-b2600.firebasestorage.app",
-  messagingSenderId: "806116671407",
-  appId: "1:806116671407:web:11de75de9c40ac6f1d395a"
+  apiKey: "AIzaSyC08KhdiCaEfbSnfrtLunMrakDXLKxs09o",
+  authDomain: "copa-de-efootball-f6170.firebaseapp.com",
+  projectId: "copa-de-efootball-f6170",
+  storageBucket: "copa-de-efootball-f6170.firebasestorage.app",
+  messagingSenderId: "148198887679",
+  appId: "1:148198887679:web:429414d6ba4972ee19fcca"
 };
 
 // Load Firebase configuration (always uses hardcoded new project credentials)
