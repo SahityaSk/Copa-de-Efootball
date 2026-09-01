@@ -225,9 +225,56 @@ export async function saveState(state) {
   }
 }
 
+// Get admin accounts (initializing default admin/admin123 if empty)
+export function getAdminAccounts() {
+  const raw = localStorage.getItem('efootball_admin_accounts');
+  let accounts = [];
+  if (raw) {
+    try {
+      accounts = JSON.parse(raw);
+    } catch (e) {}
+  }
+  
+  if (!accounts || accounts.length === 0) {
+    accounts = [{ username: 'admin', password: 'admin123' }];
+    localStorage.setItem('efootball_admin_accounts', JSON.stringify(accounts));
+    if (db && docFn && setDocFn) {
+      try {
+        const adminDocRef = docFn(db, 'tournaments', 'efootball_2026_admins');
+        setDocFn(adminDocRef, { accounts });
+      } catch (err) {}
+    }
+  }
+  return accounts;
+}
+
+// Reset or update password for an admin account
+export async function resetAdminPassword(username = 'admin', newPassword = 'admin123') {
+  let accounts = getAdminAccounts();
+  const index = accounts.findIndex(acc => acc.username.toLowerCase() === username.toLowerCase());
+  
+  if (index !== -1) {
+    accounts[index].password = newPassword.trim();
+  } else {
+    accounts.push({ username: username.trim(), password: newPassword.trim() });
+  }
+
+  localStorage.setItem('efootball_admin_accounts', JSON.stringify(accounts));
+
+  if (db && docFn && setDocFn) {
+    try {
+      const docRef = docFn(db, 'tournaments', 'efootball_2026_admins');
+      await setDocFn(docRef, { accounts });
+    } catch (err) {
+      console.warn("Firebase admin password reset save warning:", err);
+    }
+  }
+  return accounts;
+}
+
 // Save admin credentials to localStorage and Firestore
 export async function saveAdminAccount(username, password) {
-  const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+  const accounts = getAdminAccounts();
   if (accounts.some(acc => acc.username.toLowerCase() === username.toLowerCase())) {
     throw new Error("Username already exists!");
   }

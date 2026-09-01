@@ -1,6 +1,6 @@
 // js/app.js - Main Application Orchestrator
 
-import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig, saveFirebaseConfig, createDefaultState, saveAdminAccount, getGroupName, firebaseStatus } from './database.js';
+import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig, saveFirebaseConfig, createDefaultState, saveAdminAccount, getGroupName, firebaseStatus, getAdminAccounts, resetAdminPassword } from './database.js';
 import { Router } from './router.js';
 import { GroupDrawManager } from './draw.js';
 import { generateGroupMatches, generateKnockoutMatches } from './scheduler.js';
@@ -1831,22 +1831,13 @@ function renderAdmin(params) {
   // Admin authentication check
   const isLoggedIn = localStorage.getItem('efootball_admin_logged_in') === 'true';
   if (!isLoggedIn) {
-    const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
+    const accounts = getAdminAccounts();
     const hasAdmin = accounts.length > 0;
     let isSignupMode = params.authMode === 'signup';
 
-    // Security redirect: if an admin already exists, do not allow signing up
-    if (isSignupMode && hasAdmin) {
-      showToast("Administrator account already exists. Sign up is disabled.", "error");
-      params.authMode = 'login';
-      router.navigate('admin', { authMode: 'login' });
-      router.handleRouting();
-      return;
-    }
-
     container.innerHTML = `
-      <div style="max-width: 420px; margin: 60px auto; padding: 32px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--glass-border); border-radius: 16px; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);" class="glass-card">
-        <div style="text-align:center; margin-bottom: 24px;">
+      <div style="max-width: 440px; margin: 50px auto; padding: 32px; background: rgba(15, 23, 42, 0.45); border: 1px solid var(--glass-border); border-radius: 16px; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);" class="glass-card">
+        <div style="text-align:center; margin-bottom: 20px;">
           <span style="font-size:3rem; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3));">🔐</span>
           <h2 style="font-family:var(--font-display); margin-top:12px; font-size:1.6rem; color:var(--color-text-primary);">Admin Access Control</h2>
           <p style="font-size:0.85rem; color:var(--color-text-secondary); margin-top:6px;">
@@ -1854,11 +1845,16 @@ function renderAdmin(params) {
           </p>
         </div>
 
+        <div style="background:rgba(255, 179, 0, 0.08); border:1px solid rgba(255, 179, 0, 0.25); padding:10px 14px; border-radius:8px; margin-bottom:20px; font-size:0.8rem; color:var(--accent-gold); text-align:center;">
+          🔑 <b>Default Admin Credentials:</b><br>
+          Username: <code style="color:var(--color-text-primary); font-weight:bold;">admin</code> &nbsp;|&nbsp; Password: <code style="color:var(--color-text-primary); font-weight:bold;">admin123</code>
+        </div>
+
         <form id="form-admin-auth">
           <div style="display:flex; flex-direction:column; gap:16px;">
             <div>
               <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Username</label>
-              <input type="text" id="auth-username" required style="
+              <input type="text" id="auth-username" value="admin" required style="
                 width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.9rem;
               " placeholder="e.g. admin">
             </div>
@@ -1886,28 +1882,40 @@ function renderAdmin(params) {
         </form>
 
         <div style="margin-top:20px; text-align:center; font-size:0.8rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
-          ${isSignupMode ? `
-            <span style="color:var(--color-text-secondary);">Already have an account?</span>
-            <a href="#admin?authMode=login" style="color:var(--accent-emerald); font-weight:600; margin-left:4px;">Sign In</a>
-          ` : `
-            ${!hasAdmin ? `
-              <span style="color:var(--color-text-secondary);">New administrator?</span>
-              <a href="#admin?authMode=signup" style="color:var(--accent-emerald); font-weight:600; margin-left:4px;">Create Account</a>
-            ` : '<span style="color:var(--color-text-muted);">Admin account configured.</span>'}
-          `}
+          <button type="button" id="btn-reset-admin-creds" style="background:transparent; border:none; color:var(--accent-gold); cursor:pointer; font-size:0.8rem; text-decoration:underline;">
+            Forgot Password? Reset Admin Credentials
+          </button>
         </div>
       </div>
     `;
+
+    const btnResetCreds = document.getElementById('btn-reset-admin-creds');
+    if (btnResetCreds) {
+      btnResetCreds.onclick = async () => {
+        const username = prompt("Enter Admin Username to reset password for:", "admin");
+        if (!username || !username.trim()) return;
+
+        const newPassword = prompt(`Enter new password for '${username.trim()}':`, "admin123");
+        if (!newPassword || !newPassword.trim()) {
+          showToast("Password cannot be empty.", "error");
+          return;
+        }
+
+        await resetAdminPassword(username, newPassword);
+        showToast(`Password for '${username.trim()}' reset to '${newPassword.trim()}'. You can now sign in!`, "success");
+        renderAdmin(params);
+      };
+    }
 
     const formAuth = document.getElementById('form-admin-auth');
     if (formAuth) {
       formAuth.onsubmit = async (e) => {
         e.preventDefault();
         const user = document.getElementById('auth-username').value.trim();
-        const pass = document.getElementById('auth-password').value;
+        const pass = document.getElementById('auth-password').value.trim();
 
         if (isSignupMode) {
-          const confirmPass = document.getElementById('auth-confirm-password').value;
+          const confirmPass = document.getElementById('auth-confirm-password').value.trim();
           if (pass !== confirmPass) {
             showToast("Passwords do not match!", "error");
             return;
@@ -1921,15 +1929,15 @@ function renderAdmin(params) {
             showToast(err.message || "Failed to register admin account.", "error");
           }
         } else {
-          const accounts = JSON.parse(localStorage.getItem('efootball_admin_accounts') || '[]');
-          const matched = accounts.find(acc => acc.username.toLowerCase() === user.toLowerCase() && acc.password === pass);
+          const accounts = getAdminAccounts();
+          const matched = accounts.find(acc => acc.username.toLowerCase() === user.toLowerCase() && acc.password.trim() === pass);
           if (matched) {
             localStorage.setItem('efootball_admin_logged_in', 'true');
             showToast(`Welcome back, ${matched.username}!`, "success");
             router.navigate('admin');
             router.handleRouting();
           } else {
-            showToast("Invalid username or password.", "error");
+            showToast("Invalid username or password. Check default credentials or use Reset Password.", "error");
           }
         }
       };
