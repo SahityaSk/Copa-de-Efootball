@@ -29,6 +29,40 @@ export function showToast(message, type = 'success') {
   }, 4000);
 }
 
+// ----------------------------------------------------
+// Admin Auth Session Helpers
+// ----------------------------------------------------
+export function isAdminLoggedIn() {
+  return localStorage.getItem('efootball_admin_logged_in') === 'true';
+}
+
+export function updateAdminUI() {
+  const loggedIn = isAdminLoggedIn();
+  const loginBtn = document.getElementById('admin-login-trigger');
+  const sessionBadge = document.getElementById('admin-session-badge');
+  const adminNavItems = document.querySelectorAll('.admin-nav-item');
+
+  if (loginBtn) loginBtn.style.display = loggedIn ? 'none' : 'flex';
+  if (sessionBadge) sessionBadge.style.display = loggedIn ? 'flex' : 'none';
+  adminNavItems.forEach(el => {
+    el.style.display = loggedIn ? '' : 'none';
+  });
+}
+
+export function openAdminLoginModal() {
+  const modal = document.getElementById('admin-auth-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    const pwdInput = document.getElementById('modal-auth-password');
+    if (pwdInput) pwdInput.focus();
+  }
+}
+
+export function closeAdminLoginModal() {
+  const modal = document.getElementById('admin-auth-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 // Router instantiation
 let router = null;
 let currentDrawManager = null;
@@ -37,6 +71,65 @@ let activeFixtureDayTab = 1;
 
 // Init logic on window load
 window.addEventListener('DOMContentLoaded', async () => {
+  // Update nav and admin UI badges
+  updateAdminUI();
+
+  // Single Discrete Login Trigger listener
+  const loginTrigger = document.getElementById('admin-login-trigger');
+  if (loginTrigger) {
+    loginTrigger.addEventListener('click', () => openAdminLoginModal());
+  }
+
+  // Modal Close buttons
+  const modalCloseBtn = document.getElementById('modal-close-btn');
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', () => closeAdminLoginModal());
+  }
+
+  const authModal = document.getElementById('admin-auth-modal');
+  if (authModal) {
+    authModal.addEventListener('click', (e) => {
+      if (e.target === authModal) closeAdminLoginModal();
+    });
+  }
+
+  // Modal Form Submit
+  const modalAdminForm = document.getElementById('modal-admin-form');
+  if (modalAdminForm) {
+    modalAdminForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const user = document.getElementById('modal-auth-username').value.trim();
+      const pass = document.getElementById('modal-auth-password').value.trim();
+
+      const accounts = getAdminAccounts();
+      const matched = accounts.find(acc => acc.username.toLowerCase() === user.toLowerCase() && acc.password.trim() === pass);
+      if (matched) {
+        localStorage.setItem('efootball_admin_logged_in', 'true');
+        closeAdminLoginModal();
+        updateAdminUI();
+        showToast(`Welcome back, ${matched.username}! Admin permissions granted.`, "success");
+        if (router) router.handleRouting();
+      } else {
+        showToast("Invalid admin credentials!", "error");
+      }
+    });
+  }
+
+  // Header Logout button
+  const btnHeaderLogout = document.getElementById('btn-header-logout');
+  if (btnHeaderLogout) {
+    btnHeaderLogout.addEventListener('click', () => {
+      localStorage.removeItem('efootball_admin_logged_in');
+      updateAdminUI();
+      showToast("Logged out of Admin session.", "info");
+      if (window.location.hash.startsWith('#admin')) {
+        window.location.hash = '#dashboard';
+      } else if (router) {
+        router.handleRouting();
+      }
+    });
+  }
+
   // Try loading firebase
   const fbConfig = getFirebaseConfig();
   let initialized = false;
@@ -309,33 +402,46 @@ function initCountdown() {
 function renderDraw() {
   const state = getState();
   const container = document.getElementById('draw-section');
+  const loggedIn = isAdminLoggedIn();
 
   const isDrawn = state.status !== 'pre-draw' && state.status !== 'drawing';
   
   let drawStateHTML = '';
   if (state.status === 'pre-draw') {
     const isReadyForDraw = state.teams.length === 32;
-    drawStateHTML = `
-      <div style="text-align:center; margin-bottom: 24px;">
-        <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Click Start to draw them into Groups A-H.</p>
-        
-        ${!isReadyForDraw ? `
-          <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
-            <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
-              ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
-            </p>
-            <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
-              Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
-            </p>
-          </div>
-        ` : ''}
+    if (loggedIn) {
+      drawStateHTML = `
+        <div style="text-align:center; margin-bottom: 24px;">
+          <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Click Start to draw them into Groups A-H.</p>
+          
+          ${!isReadyForDraw ? `
+            <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
+              <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
+                ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
+              </p>
+              <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
+                Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
+              </p>
+            </div>
+          ` : ''}
 
-        <div style="display:flex; justify-content:center; gap:12px;">
-          <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
-          <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
+            <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      drawStateHTML = `
+        <div style="text-align:center; margin-bottom: 24px;">
+          <p style="color:var(--color-text-secondary); margin-bottom:14px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings.</p>
+          <div class="admin-only-notice">
+            🔒 <b>Draw Controls Reserved for Admin</b><br>
+            <span style="font-size:0.8rem; opacity:0.9;">Sign in as Admin to perform or auto-complete the Group Draw.</span>
+          </div>
+        </div>
+      `;
+    }
   } else if (state.status === 'drawing') {
     drawStateHTML = `
       <div style="text-align:center; margin-bottom: 24px; background:rgba(0, 230, 118, 0.05); padding: 16px; border-radius:12px; border:1px solid rgba(0, 230, 118, 0.2);">
@@ -343,8 +449,8 @@ function renderDraw() {
           <div class="badge-live"><span class="live-dot"></span> DRAWING LIVE</div>
           <h3 id="draw-animation-banner" style="color:var(--accent-gold);">Selecting Team...</h3>
         </div>
-        <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-top:8px;">Teams are being assigned sequentially. Please wait or click skip.</p>
-        <button id="btn-skip-draw" class="btn-secondary" style="margin-top:12px; font-size:0.8rem; padding:4px 12px;">Skip Animation</button>
+        <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-top:8px;">Teams are being assigned sequentially.</p>
+        ${loggedIn ? '<button id="btn-skip-draw" class="btn-secondary" style="margin-top:12px; font-size:0.8rem; padding:4px 12px;">Skip Animation</button>' : ''}
       </div>
     `;
   } else {
@@ -354,7 +460,7 @@ function renderDraw() {
       <div style="text-align:center; margin-bottom: 32px; background:rgba(0, 230, 118, 0.1); padding:20px; border-radius:16px; border:1px solid var(--accent-emerald);">
         <h3 style="color:var(--accent-emerald); font-family:var(--font-display); font-size:1.4rem; margin-bottom:8px;">🏆 DRAW COMPLETED</h3>
         <p style="color:var(--color-text-secondary); font-size:0.9rem; margin-bottom: 16px;">Groups A to H have been successfully populated with 4 balanced seed teams each.</p>
-        ${!hasFixtures ? '<button id="btn-gen-fixtures" class="btn-primary"><i data-lucide="calendar"></i> Generate Fixtures Calendar</button>' : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>'}
+        ${!hasFixtures && loggedIn ? '<button id="btn-gen-fixtures" class="btn-primary"><i data-lucide="calendar"></i> Generate Fixtures Calendar</button>' : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>'}
       </div>
     `;
   }
@@ -767,7 +873,7 @@ function renderFixtures() {
           <span>🏟️ ${m.stadium}</span>
           <div style="display:flex; gap:12px;">
             <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald); font-weight:600;">Match Details</a>
-            <a href="#admin?match=${m.id}" style="color:var(--accent-gold); font-weight:600;">Enter Result</a>
+            ${isAdminLoggedIn() ? `<a href="#admin?match=${m.id}" style="color:var(--accent-gold); font-weight:600;">Enter Result</a>` : ''}
           </div>
         </div>
       </div>
@@ -1291,6 +1397,7 @@ function drawBracketLines() {
 function renderTeams() {
   const state = getState();
   const container = document.getElementById('teams-section');
+  const loggedIn = isAdminLoggedIn();
 
   const teamCards = state.teams.map(team => {
     // Count stats dynamically
@@ -1328,13 +1435,39 @@ function renderTeams() {
   }).join('');
 
   container.innerHTML = `
-    <h2 style="margin-bottom:20px; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
-      <i data-lucide="users" style="color:var(--accent-emerald);"></i> Competing Nations (${state.teams.length})
-    </h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+      <h2 style="font-family:var(--font-display); display:flex; align-items:center; gap:8px; margin:0;">
+        <i data-lucide="users" style="color:var(--accent-emerald);"></i> Competing Nations (${state.teams.length})
+      </h2>
+      ${loggedIn && state.status === 'pre-draw' ? `
+        <button id="btn-add-team-direct" class="btn-primary" style="font-size:0.85rem; padding:8px 16px;">
+          <i data-lucide="plus-circle" style="width:16px; height:16px;"></i> + Add New Team
+        </button>
+      ` : ''}
+    </div>
     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:20px;">
       ${teamCards}
     </div>
   `;
+
+  const btnAddTeamDirect = document.getElementById('btn-add-team-direct');
+  if (btnAddTeamDirect) {
+    btnAddTeamDirect.onclick = () => {
+      const name = prompt("Admin: Enter new Team Name (e.g. Netherlands):");
+      if (!name || !name.trim()) return;
+      const owner = prompt(`Enter Owner Name for ${name.trim()} (optional):`, "");
+      const ratingStr = prompt(`Enter Team Overall Rating (60 - 99):`, "82");
+      const rating = parseInt(ratingStr, 10) || 82;
+
+      try {
+        const newTeam = addCustomTeam(state, name.trim(), owner ? owner.trim() : '', '⚽', rating);
+        showToast(`Team "${newTeam.name}" registered successfully!`, "success");
+        renderTeams();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+  }
 
   lucide.createIcons();
 }
@@ -1367,7 +1500,7 @@ function renderTeamProfile(params) {
     groupRankHTML = posIdx !== -1 ? `#${posIdx + 1} in ${getGroupName(team.group, state)}` : getGroupName(team.group, state);
   }
 
-  const isLoggedIn = localStorage.getItem('efootball_admin_logged_in') === 'true';
+  const isLoggedIn = isAdminLoggedIn();
   const isEditingTeam = params.editTeam === 'true' && isLoggedIn;
   
   // Team Matches list
@@ -1960,7 +2093,8 @@ function renderAdmin(params) {
           const matched = accounts.find(acc => acc.username.toLowerCase() === user.toLowerCase() && acc.password.trim() === pass);
           if (matched) {
             localStorage.setItem('efootball_admin_logged_in', 'true');
-            showToast(`Welcome back, ${matched.username}!`, "success");
+            updateAdminUI();
+            showToast(`Welcome back, ${matched.username}! Admin access granted.`, "success");
             router.navigate('admin');
             router.handleRouting();
           } else {

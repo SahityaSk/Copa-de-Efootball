@@ -27,8 +27,17 @@
         <a href="#results" class="desktop-nav-link" id="nav-results"><i data-lucide="clipboard-check"></i> Results</a>
         <a href="#statistics" class="desktop-nav-link" id="nav-statistics"><i data-lucide="bar-chart-3"></i> Stats</a>
         <a href="#teams" class="desktop-nav-link" id="nav-teams"><i data-lucide="users"></i> Teams</a>
-        <a href="#admin" class="desktop-nav-link" id="nav-admin"><i data-lucide="settings"></i> Admin</a>
+        <a href="#admin" class="desktop-nav-link admin-nav-item" id="nav-admin" style="display:none;"><i data-lucide="settings"></i> Admin</a>
       </nav>
+      <div class="header-admin-auth">
+        <button id="admin-login-trigger" title="Admin Login" class="btn-discrete-login" aria-label="Admin Login">
+          <i data-lucide="lock" style="width:16px; height:16px;"></i>
+        </button>
+        <div id="admin-session-badge" class="admin-session-badge" style="display:none;">
+          <span class="badge-admin-label"><i data-lucide="shield-check" style="width:14px; height:14px;"></i> Admin</span>
+          <button id="btn-header-logout" class="btn-logout-mini" title="Sign Out">Logout</button>
+        </div>
+      </div>
     </header>
 
     <!-- Mobile Bottom Navigation -->
@@ -38,7 +47,7 @@
       <a href="#groups" class="mobile-nav-link"><i data-lucide="columns-3"></i><span>Groups</span></a>
       <a href="#fixtures" class="mobile-nav-link"><i data-lucide="calendar"></i><span>Fixtures</span></a>
       <a href="#knockout" class="mobile-nav-link"><i data-lucide="award"></i><span>Knockout</span></a>
-      <a href="#admin" class="mobile-nav-link"><i data-lucide="settings"></i><span>Admin</span></a>
+      <a href="#admin" class="mobile-nav-link admin-nav-item" style="display:none;"><i data-lucide="settings"></i><span>Admin</span></a>
     </nav>
 
     <!-- MAIN SPA CONTAINER -->
@@ -109,6 +118,34 @@
 
     </main>
 
+  </div>
+
+  <!-- Admin Auth Modal -->
+  <div id="admin-auth-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content glass-card" style="max-width: 420px; padding: 28px; border-radius: 16px; position:relative; box-shadow: 0 12px 40px rgba(0,0,0,0.6);">
+      <button id="modal-close-btn" class="modal-close" style="position:absolute; top:16px; right:16px; background:transparent; border:none; color:var(--color-text-secondary); font-size:1.5rem; cursor:pointer;">&times;</button>
+      <div style="text-align:center; margin-bottom: 20px;">
+        <span style="font-size:2.5rem;">🔐</span>
+        <h3 style="font-family:var(--font-display); margin-top:8px; font-size:1.4rem;">Admin Access</h3>
+        <p style="font-size:0.8rem; color:var(--color-text-secondary); margin-top:4px;">Sign in with administrator credentials to manage tournament</p>
+      </div>
+
+      <form id="modal-admin-form">
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:4px;">Username</label>
+            <input type="text" id="modal-auth-username" value="admin" required style="width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.9rem;">
+          </div>
+          <div>
+            <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:4px;">Password</label>
+            <input type="password" id="modal-auth-password" required placeholder="••••••••" style="width:100%; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.9rem;">
+          </div>
+          <button type="submit" class="btn-primary" style="justify-content:center; padding:10px; font-weight:700; margin-top:6px; width:100%;">
+            Sign In as Admin
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Lucide Icon Library -->

@@ -1385,4 +1385,96 @@ table.standings-table {
   .responsive-split-grid-admin {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================
+   ADMIN AUTH & SINGLE DISCRETE LOGIN TRIGGER
+   ============================================================ */
+
+.header-admin-auth {
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+}
+
+.btn-discrete-login {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--color-text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  opacity: 0.6;
+}
+
+.btn-discrete-login:hover {
+  color: var(--accent-gold);
+  border-color: var(--accent-gold);
+  opacity: 1;
+  transform: scale(1.05);
+  box-shadow: 0 0 12px var(--accent-gold-glow);
+}
+
+.admin-session-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid var(--accent-emerald);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.badge-admin-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-emerald);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-logout-mini {
+  background: rgba(255, 61, 0, 0.15);
+  border: 1px solid rgba(255, 61, 0, 0.3);
+  color: var(--accent-red);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-logout-mini:hover {
+  background: var(--accent-red);
+  color: #fff;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(5, 7, 15, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

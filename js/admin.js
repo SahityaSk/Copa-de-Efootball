@@ -3,8 +3,15 @@
 import { saveState, createDefaultState } from './database.js';
 import { generateGroupMatches, generateKnockoutMatches, updateKnockoutProgression } from './scheduler.js';
 
+function checkAdminAuth() {
+  if (localStorage.getItem('efootball_admin_logged_in') !== 'true') {
+    throw new Error('Unauthorized: Admin login required to perform this action.');
+  }
+}
+
 // Reset tournament to pre-draw state
 export function resetTournament(state) {
+  checkAdminAuth();
   const defaultState = createDefaultState();
   // Carry over custom teams if they were added
   defaultState.teams = [...state.teams];
@@ -16,6 +23,7 @@ export function resetTournament(state) {
 
 // Full reset to empty pre-draw state
 export function hardResetTournament() {
+  checkAdminAuth();
   const defaultState = createDefaultState();
   saveState(defaultState);
   return defaultState;
@@ -23,6 +31,7 @@ export function hardResetTournament() {
 
 // Clear all teams and reset tournament to empty state
 export function clearAllTeams() {
+  checkAdminAuth();
   const defaultState = createDefaultState();
   saveState(defaultState);
   return defaultState;
@@ -30,6 +39,7 @@ export function clearAllTeams() {
 
 // Edit Match Date/Time/Venue
 export function editMatchSchedule(state, matchId, date, time, stadium) {
+  checkAdminAuth();
   const match = state.matches.find(m => m.id === matchId);
   if (!match) return false;
   match.date = date;
@@ -41,6 +51,7 @@ export function editMatchSchedule(state, matchId, date, time, stadium) {
 
 // Add a new custom team
 export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue = 80) {
+  checkAdminAuth();
   if (state.teams.length >= 32 && state.status !== 'pre-draw') {
     throw new Error('Tournament cannot exceed 32 teams after draw has commenced.');
   }
@@ -84,6 +95,7 @@ export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue
 
 // Remove a team
 export function removeTeamFromState(state, teamId) {
+  checkAdminAuth();
   if (state.status !== 'pre-draw') {
     throw new Error('Cannot remove teams after the draw has started.');
   }
@@ -132,6 +144,7 @@ export function enterMatchResult(
   homePenalties = null,
   awayPenalties = null
 ) {
+  checkAdminAuth();
   const match = state.matches.find(m => m.id === matchId);
   if (!match) return false;
 
