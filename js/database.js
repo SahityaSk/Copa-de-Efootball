@@ -15,13 +15,12 @@ const STATE_LOCAL_KEY = 'efootball_tournament_state';
 const FIREBASE_CONFIG_KEY = 'efootball_firebase_config';
 
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCQPXIax92p76a1NigsqXYt1DOVzfuweN0",
-  authDomain: "copa-de-efootball.firebaseapp.com",
-  projectId: "copa-de-efootball",
-  storageBucket: "copa-de-efootball.firebasestorage.app",
-  messagingSenderId: "441201558487",
-  appId: "1:441201558487:web:8830c4149d006733498192",
-  measurementId: "G-6B8C57F1DV"
+  apiKey: "AIzaSyC08KhdiCaEfbSnfrtLunMrakDXLKxs09o",
+  authDomain: "copa-de-efootball-f6170.firebaseapp.com",
+  projectId: "copa-de-efootball-f6170",
+  storageBucket: "copa-de-efootball-f6170.firebasestorage.app",
+  messagingSenderId: "148198887679",
+  appId: "1:148198887679:web:429414d6ba4972ee19fcca"
 };
 
 // Standard group name helper
@@ -34,7 +33,12 @@ export function getGroupName(groupLetter) {
 export function getFirebaseConfig() {
   const config = localStorage.getItem(FIREBASE_CONFIG_KEY);
   if (config) {
-    return JSON.parse(config);
+    try {
+      const parsed = JSON.parse(config);
+      if (parsed && parsed.apiKey && parsed.projectId) {
+        return parsed;
+      }
+    } catch (e) {}
   }
   return DEFAULT_FIREBASE_CONFIG;
 }
