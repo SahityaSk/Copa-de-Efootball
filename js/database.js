@@ -15,19 +15,29 @@ const STATE_LOCAL_KEY = 'efootball_tournament_state';
 const FIREBASE_CONFIG_KEY = 'efootball_firebase_config';
 
 const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyC08KhdiCaEfbSnfrtLunMrakDXLKxs09o",
-  authDomain: "copa-de-efootball-f6170.firebaseapp.com",
-  projectId: "copa-de-efootball-f6170",
-  storageBucket: "copa-de-efootball-f6170.firebasestorage.app",
-  messagingSenderId: "148198887679",
-  appId: "1:148198887679:web:429414d6ba4972ee19fcca"
+  apiKey: "AIzaSyCQPXIax92p76a1NigsqXYt1DOVzfuweN0",
+  authDomain: "copa-de-efootball.firebaseapp.com",
+  projectId: "copa-de-efootball",
+  storageBucket: "copa-de-efootball.firebasestorage.app",
+  messagingSenderId: "441201558487",
+  appId: "1:441201558487:web:8830c4149d006733498192",
+  measurementId: "G-6B8C57F1DV"
 };
 
-// Load Firebase configuration (always uses hardcoded new project credentials)
-export function getFirebaseConfig() {
-  return DEFAULT_FIREBASE_CONFIG;
+// Standard group name helper
+export function getGroupName(groupLetter) {
+  if (!groupLetter) return '';
+  return `Group ${groupLetter}`;
 }
 
+// Load Firebase configuration from localStorage, falling back to default configuration
+export function getFirebaseConfig() {
+  const config = localStorage.getItem(FIREBASE_CONFIG_KEY);
+  if (config) {
+    return JSON.parse(config);
+  }
+  return DEFAULT_FIREBASE_CONFIG;
+}
 
 // Save Firebase configuration to localStorage
 export function saveFirebaseConfig(config) {
@@ -37,6 +47,12 @@ export function saveFirebaseConfig(config) {
   }
   localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(config));
 }
+
+export let firebaseStatus = {
+  connected: false,
+  error: null,
+  lastSync: null
+};
 
 // Initialize Firebase if config exists
 export function initFirebase(config, onStateUpdate) {
@@ -57,21 +73,17 @@ export function initFirebase(config, onStateUpdate) {
     firebaseApp = null;
     docFn = null;
     setDocFn = null;
+    firebaseStatus.connected = false;
+    firebaseStatus.error = "No Firebase configuration supplied";
     return Promise.resolve(false);
   }
 
   return new Promise(async (resolve) => {
     try {
-      const { initializeApp, getApps, getApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js');
       const { getFirestore, doc, onSnapshot, setDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
 
-      const apps = getApps();
-      if (apps.length > 0) {
-        firebaseApp = getApp();
-      } else {
-        firebaseApp = initializeApp(config);
-      }
-
+      firebaseApp = initializeApp(config);
       db = getFirestore(firebaseApp);
       docFn = doc;
       setDocFn = setDoc;
@@ -81,6 +93,10 @@ export function initFirebase(config, onStateUpdate) {
       // Setup real-time listener for tournament state
       const docRef = docFn(db, 'tournaments', 'efootball_2026');
       unsubscribeFirebase = onSnapshot(docRef, async (docSnap) => {
+        firebaseStatus.connected = true;
+        firebaseStatus.error = null;
+        firebaseStatus.lastSync = new Date().toLocaleTimeString();
+
         if (docSnap.exists()) {
           const remoteState = docSnap.data();
           saveStateToLocal(remoteState);
@@ -99,6 +115,8 @@ export function initFirebase(config, onStateUpdate) {
         }
       }, (error) => {
         console.warn("Firebase snapshot error, falling back to LocalStorage:", error);
+        firebaseStatus.connected = false;
+        firebaseStatus.error = error ? (error.message || error.toString()) : "Firebase connection rejected";
         if (!firstSnapshotProcessed) {
           firstSnapshotProcessed = true;
           resolve(false);
@@ -128,6 +146,8 @@ export function initFirebase(config, onStateUpdate) {
 
     } catch (err) {
       console.error("Failed to initialize Firebase:", err);
+      firebaseStatus.connected = false;
+      firebaseStatus.error = err ? (err.message || err.toString()) : "Failed to initialize Firebase SDK";
       db = null;
       firebaseApp = null;
       docFn = null;
@@ -141,7 +161,11 @@ export function initFirebase(config, onStateUpdate) {
 function getLocalState() {
   const raw = localStorage.getItem(STATE_LOCAL_KEY);
   if (raw) {
-    return JSON.parse(raw);
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error("Failed to parse local state:", e);
+    }
   }
   return createDefaultState();
 }
@@ -182,15 +206,15 @@ export function createDefaultState() {
 export async function saveState(state) {
   // Recalculate standings, player stats, etc. to keep everything in sync
   const updatedState = recalculateStatsAndStandings(state);
-  
+
   saveStateToLocal(updatedState);
 
   if (db && docFn && setDocFn) {
     try {
       const docRef = docFn(db, 'tournaments', 'efootball_2026');
-      // Clean undefined values for Firestore compatibility
-      const sanitizedState = JSON.parse(JSON.stringify(updatedState));
-      await setDocFn(docRef, sanitizedState);
+      // Clean undefined values to prevent Firestore unsupported field errors
+      const cleanState = JSON.parse(JSON.stringify(updatedState));
+      await setDocFn(docRef, cleanState);
     } catch (err) {
       console.error("Firebase save failed, local state updated:", err);
     }
@@ -259,7 +283,7 @@ export function recalculateStatsAndStandings(state) {
         if (gk) gk.cleanSheets += 1;
       }
 
-      // Record player appearances and cards from match lineups
+      // Record player appearances based on lineups
       if (match.homeLineup) {
         match.homeLineup.forEach(lp => {
           const player = homeTeam.squad.find(p => p.id === lp.playerId);
@@ -281,7 +305,7 @@ export function recalculateStatsAndStandings(state) {
         });
       }
 
-      // Record goals & assists from match timeline events (cards handled via lineup to avoid double counting)
+      // Record goals & assists from match timeline events
       match.timeline.forEach(event => {
         if (event.type === 'goal') {
           const team = event.teamId === homeTeam.id ? homeTeam : awayTeam;
@@ -293,6 +317,14 @@ export function recalculateStatsAndStandings(state) {
             const assister = team.squad.find(p => p.name === assistName);
             if (assister) assister.assists += 1;
           }
+        } else if (event.type === 'yellow_card') {
+          const team = event.teamId === homeTeam.id ? homeTeam : awayTeam;
+          const player = team.squad.find(p => p.name === event.playerName);
+          if (player) player.yellowCards += 1;
+        } else if (event.type === 'red_card') {
+          const team = event.teamId === homeTeam.id ? homeTeam : awayTeam;
+          const player = team.squad.find(p => p.name === event.playerName);
+          if (player) player.redCards += 1;
         }
       });
     }
@@ -357,8 +389,8 @@ export function getGroupStandings(state, groupLetter) {
   // 1. Points
   // 2. Goal Difference
   // 3. Goals For
-  // 4. Head to Head result
-  // 5. Team overall rating average
+  // 4. Head to Head result (simplified: who won when they played)
+  // 5. Team overall rating (esports feel)
   standings.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.gd !== a.gd) return b.gd - a.gd;
@@ -381,18 +413,14 @@ export function getGroupStandings(state, groupLetter) {
       }
     }
 
-    // Esports rating average fallback
-    const getTeamOvr = tId => {
-      const team = teams.find(t => t.id === tId);
-      if (!team || !team.squad || team.squad.length === 0) return 80;
-      return Math.round(team.squad.reduce((sum, p) => sum + (p.rating || 80), 0) / team.squad.length);
-    };
-    const ratingA = getTeamOvr(a.teamId);
-    const ratingB = getTeamOvr(b.teamId);
+    // Esports rating fallback
+    const ratingA = teams.find(t => t.id === a.teamId)?.rating || 0;
+    const ratingB = teams.find(t => t.id === b.teamId)?.rating || 0;
     return ratingB - ratingA;
   });
 
   // Determine qualification flags (top 2 qualify, bottom 2 eliminated if group matches completed)
+  // Or check if they are currently in qualified slots
   standings.forEach((row, idx) => {
     if (idx < 2) {
       row.qualified = true;
@@ -403,4 +431,3 @@ export function getGroupStandings(state, groupLetter) {
 
   return standings;
 }
-

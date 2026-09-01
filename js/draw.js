@@ -1,6 +1,6 @@
 // js/draw.js - Cinematic Group Draw Simulator
 
-import { saveState } from './database.js';
+import { saveState, getGroupName } from './database.js';
 
 // Shuffle helper
 function shuffleArray(arr) {
@@ -72,6 +72,32 @@ export class GroupDrawManager {
   // ------------------------------------------------------------
 
   prepareDraw() {
+    const validTeams = (this.state.teams || []).filter(t => t && t.id);
+    const validTeamIds = new Set(validTeams.map(t => t.id));
+
+    // Rebuild pots if pots are missing, empty, or contain invalid/stale IDs
+    const currentPots = this.state.drawState && this.state.drawState.pots ? this.state.drawState.pots : {};
+    const pot1 = (currentPots[1] || []).filter(id => validTeamIds.has(id));
+    const pot2 = (currentPots[2] || []).filter(id => validTeamIds.has(id));
+    const pot3 = (currentPots[3] || []).filter(id => validTeamIds.has(id));
+    const pot4 = (currentPots[4] || []).filter(id => validTeamIds.has(id));
+
+    if (pot1.length + pot2.length + pot3.length + pot4.length !== validTeams.length) {
+      const sorted = [...validTeams].sort((a, b) => {
+        const rA = a.squad && a.squad[5] ? a.squad[5].rating : (a.rating || 80);
+        const rB = b.squad && b.squad[5] ? b.squad[5].rating : (b.rating || 80);
+        return rB - rA;
+      });
+
+      const potSize = Math.ceil(sorted.length / 4) || 8;
+      const freshPots = { 1: [], 2: [], 3: [], 4: [] };
+      sorted.forEach((team, idx) => {
+        const pNum = Math.min(4, Math.floor(idx / potSize) + 1);
+        freshPots[pNum].push(team.id);
+      });
+      this.state.drawState.pots = freshPots;
+    }
+
     const pots = {
       1: shuffleArray(this.state.drawState.pots[1] || []),
       2: shuffleArray(this.state.drawState.pots[2] || []),
@@ -79,73 +105,21 @@ export class GroupDrawManager {
       4: shuffleArray(this.state.drawState.pots[4] || [])
     };
 
-    const groupLetters = [
-      'A',
-      'B',
-      'C',
-      'D',
-      'E',
-      'F',
-      'G',
-      'H'
-    ];
-
+    const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     const sequence = [];
+    const drawnTeamIds = new Set();
 
-    // ----------------------------------------------------------
-    // Pot 1 -> Groups A-H
-    // ----------------------------------------------------------
-
-    pots[1].forEach((teamId, idx) => {
-      if (idx < groupLetters.length) {
-        sequence.push({
-          teamId,
-          groupLetter: groupLetters[idx],
-          potIndex: 1
-        });
-      }
-    });
-
-    // ----------------------------------------------------------
-    // Pot 2 -> Groups A-H
-    // ----------------------------------------------------------
-
-    pots[2].forEach((teamId, idx) => {
-      if (idx < groupLetters.length) {
-        sequence.push({
-          teamId,
-          groupLetter: groupLetters[idx],
-          potIndex: 2
-        });
-      }
-    });
-
-    // ----------------------------------------------------------
-    // Pot 3 -> Groups A-H
-    // ----------------------------------------------------------
-
-    pots[3].forEach((teamId, idx) => {
-      if (idx < groupLetters.length) {
-        sequence.push({
-          teamId,
-          groupLetter: groupLetters[idx],
-          potIndex: 3
-        });
-      }
-    });
-
-    // ----------------------------------------------------------
-    // Pot 4 -> Groups A-H
-    // ----------------------------------------------------------
-
-    pots[4].forEach((teamId, idx) => {
-      if (idx < groupLetters.length) {
-        sequence.push({
-          teamId,
-          groupLetter: groupLetters[idx],
-          potIndex: 4
-        });
-      }
+    [1, 2, 3, 4].forEach(potNum => {
+      pots[potNum].forEach((teamId, idx) => {
+        if (idx < groupLetters.length && !drawnTeamIds.has(teamId)) {
+          drawnTeamIds.add(teamId);
+          sequence.push({
+            teamId,
+            groupLetter: groupLetters[idx],
+            potIndex: potNum
+          });
+        }
+      });
     });
 
     this.drawSequence = sequence;
@@ -254,9 +228,15 @@ export class GroupDrawManager {
       pot: step.potIndex
     });
 
-    // ----------------------------------------------------------
-    // Assign team to group
-    // ----------------------------------------------------------
+    // Ensure team is removed from all other groups first to prevent duplicate assignments
+    Object.keys(this.state.groups).forEach(g => {
+      this.state.groups[g] = (this.state.groups[g] || []).filter(id => id !== step.teamId);
+    });
+    if (this.state.drawState.assignedGroups) {
+      Object.keys(this.state.drawState.assignedGroups).forEach(g => {
+        this.state.drawState.assignedGroups[g] = (this.state.drawState.assignedGroups[g] || []).filter(id => id !== step.teamId);
+      });
+    }
 
     if (!this.state.groups[step.groupLetter]) {
       this.state.groups[step.groupLetter] = [];
@@ -366,10 +346,14 @@ export class GroupDrawManager {
     }
 
     // ----------------------------------------------------------
-    // Assign entire draw immediately
+    // Assign entire draw immediately with uniqueness guarantee
     // ----------------------------------------------------------
 
+    const assignedSet = new Set();
     this.drawSequence.forEach(step => {
+      if (assignedSet.has(step.teamId)) return; // Prevent drawing team twice
+      assignedSet.add(step.teamId);
+
       this.state.groups[step.groupLetter].push(
         step.teamId
       );

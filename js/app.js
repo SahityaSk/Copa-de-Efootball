@@ -1,6 +1,6 @@
 // js/app.js - Main Application Orchestrator
 
-import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig, saveFirebaseConfig, createDefaultState, saveAdminAccount } from './database.js';
+import { getState, saveState, getGroupStandings, initFirebase, getFirebaseConfig, saveFirebaseConfig, createDefaultState, saveAdminAccount, getGroupName, firebaseStatus } from './database.js';
 import { Router } from './router.js';
 import { GroupDrawManager } from './draw.js';
 import { generateGroupMatches, generateKnockoutMatches } from './scheduler.js';
@@ -34,11 +34,6 @@ let router = null;
 let currentDrawManager = null;
 let activeGroupTab = 'A';
 let activeFixtureDayTab = 1;
-
-// Helper: Check if user is logged in as admin
-export function isAdminLoggedIn() {
-  return localStorage.getItem('efootball_admin_logged_in') === 'true';
-}
 
 // Init logic on window load
 window.addEventListener('DOMContentLoaded', async () => {
@@ -81,8 +76,10 @@ function getFlagEmoji(teamId, state) {
 }
 
 function getTeamName(teamId, state) {
-  const team = state.teams.find(t => t.id === teamId);
-  return team ? team.name : teamId;
+  if (!teamId) return '';
+  const team = state.teams ? state.teams.find(t => t.id === teamId) : null;
+  if (team) return team.name;
+  return teamId.replace(/Group ([A-H])/g, (_, letter) => getGroupName(letter, state));
 }
 
 // ----------------------------------------------------
@@ -158,7 +155,7 @@ function renderDashboard() {
         <div class="glass-card" style="padding: 12px 20px; border-left: 3px solid var(--accent-red); display:flex; align-items:center; justify-content:space-between; gap:16px;">
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="badge-live"><span class="live-dot"></span> LIVE</span>
-            <span style="font-size:0.8rem; color:var(--color-text-secondary);">${m.group ? 'Group ' + m.group : m.stage}</span>
+            <span style="font-size:0.8rem; color:var(--color-text-secondary);">${m.group ? getGroupName(m.group, state) : m.stage}</span>
           </div>
           <div style="display:flex; align-items:center; gap:12px; font-weight:700;">
             <span>${getFlagEmoji(m.homeTeamId, state)} ${getTeamName(m.homeTeamId, state)}</span>
@@ -180,16 +177,20 @@ function renderDashboard() {
       <!-- Countdown Widget -->
       <div style="display:flex; justify-content:center; gap:16px; margin: 24px 0;" id="countdown-widget">
         <div style="background:var(--bg-primary); padding:10px 16px; border-radius:8px; min-width:65px;">
-          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display);" id="cd-days">02</div>
+          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display);" id="cd-days">00</div>
           <div style="font-size:0.7rem; color:var(--color-text-secondary); text-transform:uppercase;">Days</div>
         </div>
         <div style="background:var(--bg-primary); padding:10px 16px; border-radius:8px; min-width:65px;">
-          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display);" id="cd-hours">14</div>
+          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display);" id="cd-hours">00</div>
           <div style="font-size:0.7rem; color:var(--color-text-secondary); text-transform:uppercase;">Hours</div>
         </div>
         <div style="background:var(--bg-primary); padding:10px 16px; border-radius:8px; min-width:65px;">
-          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display);" id="cd-mins">35</div>
+          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display);" id="cd-mins">00</div>
           <div style="font-size:0.7rem; color:var(--color-text-secondary); text-transform:uppercase;">Mins</div>
+        </div>
+        <div style="background:var(--bg-primary); padding:10px 16px; border-radius:8px; min-width:65px;">
+          <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-display); color:var(--accent-emerald);" id="cd-secs">00</div>
+          <div style="font-size:0.7rem; color:var(--color-text-secondary); text-transform:uppercase;">Secs</div>
         </div>
       </div>
 
@@ -257,37 +258,49 @@ function renderDashboard() {
   lucide.createIcons();
 }
 
+let countdownInterval = null;
+
 function initCountdown() {
   const cdDays = document.getElementById('cd-days');
   const cdHours = document.getElementById('cd-hours');
   const cdMins = document.getElementById('cd-mins');
+  const cdSecs = document.getElementById('cd-secs');
 
-  if (!cdDays || !cdHours || !cdMins) return;
+  if (!cdDays || !cdHours || !cdMins || !cdSecs) return;
 
-  // Static esports countdown ticking down
-  let d = 2, h = 14, m = 35;
-  const interval = setInterval(() => {
-    if (!document.getElementById('cd-days')) {
-      clearInterval(interval);
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+  }
+
+  // Target Tournament Start Date: September 20, 2026 00:00:00
+  const targetDate = new Date('2026-09-20T00:00:00').getTime();
+
+  function updateTimer() {
+    const now = new Date().getTime();
+    const diff = targetDate - now;
+
+    if (diff <= 0) {
+      cdDays.innerText = '00';
+      cdHours.innerText = '00';
+      cdMins.innerText = '00';
+      cdSecs.innerText = '00';
+      if (countdownInterval) clearInterval(countdownInterval);
       return;
     }
-    m--;
-    if (m < 0) {
-      m = 59;
-      h--;
-      if (h < 0) {
-        h = 23;
-        d--;
-        if (d < 0) {
-          d = 0; h = 0; m = 0;
-          clearInterval(interval);
-        }
-      }
-    }
-    cdDays.innerText = String(d).padStart(2, '0');
-    cdHours.innerText = String(h).padStart(2, '0');
-    cdMins.innerText = String(m).padStart(2, '0');
-  }, 60000);
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+    if (cdDays) cdDays.innerText = String(days).padStart(2, '0');
+    if (cdHours) cdHours.innerText = String(hours).padStart(2, '0');
+    if (cdMins) cdMins.innerText = String(mins).padStart(2, '0');
+    if (cdSecs) cdSecs.innerText = String(secs).padStart(2, '0');
+  }
+
+  updateTimer();
+  countdownInterval = setInterval(updateTimer, 1000);
 }
 
 // ----------------------------------------------------
@@ -296,7 +309,6 @@ function initCountdown() {
 function renderDraw() {
   const state = getState();
   const container = document.getElementById('draw-section');
-  const isAdmin = isAdminLoggedIn();
 
   const isDrawn = state.status !== 'pre-draw' && state.status !== 'drawing';
   
@@ -305,29 +317,23 @@ function renderDraw() {
     const isReadyForDraw = state.teams.length === 32;
     drawStateHTML = `
       <div style="text-align:center; margin-bottom: 24px;">
-        <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Draw them into Groups A-H.</p>
+        <p style="color:var(--color-text-secondary); margin-bottom:16px;">The 32 teams are divided into 4 Pots based on overall eFootball rankings. Click Start to draw them into Groups A-H.</p>
         
-        ${!isAdmin ? `
-          <div class="admin-only-notice">
-            🔒 Group Draw controls are restricted to Administrators. Please <a href="#admin" style="color:var(--accent-gold); font-weight:700; text-decoration:underline;">Sign In as Admin</a> to conduct or modify the draw.
+        ${!isReadyForDraw ? `
+          <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
+            <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
+              ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
+            </p>
+            <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
+              Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
+            </p>
           </div>
-        ` : `
-          ${!isReadyForDraw ? `
-            <div class="glass-card" style="padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255, 61, 0, 0.3); background: rgba(255, 61, 0, 0.05); text-align: center; border-radius: 8px;">
-              <p style="color:var(--accent-red); font-weight: 600; font-size: 0.9rem; margin: 0;">
-                ⚠️ Exactly 32 teams are required to start the tournament. Currently registered: ${state.teams.length}/32.
-              </p>
-              <p style="color:var(--color-text-secondary); font-size: 0.8rem; margin: 6px 0 0 0;">
-                Please go to the <a href="#admin" style="color:var(--accent-emerald); font-weight: 600; text-decoration: underline;">Admin tab</a> to add/manage teams.
-              </p>
-            </div>
-          ` : ''}
+        ` : ''}
 
-          <div style="display:flex; justify-content:center; gap:12px;">
-            <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
-            <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
-          </div>
-        `}
+        <div style="display:flex; justify-content:center; gap:12px;">
+          <button id="btn-run-draw" class="btn-primary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}><i data-lucide="dices"></i> 🎲 Start Draw</button>
+          <button id="btn-quick-draw" class="btn-secondary" ${!isReadyForDraw ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>⚡ Quick Draw (Instant)</button>
+        </div>
       </div>
     `;
   } else if (state.status === 'drawing') {
@@ -337,8 +343,8 @@ function renderDraw() {
           <div class="badge-live"><span class="live-dot"></span> DRAWING LIVE</div>
           <h3 id="draw-animation-banner" style="color:var(--accent-gold);">Selecting Team...</h3>
         </div>
-        <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-top:8px;">Teams are being assigned sequentially.</p>
-        ${isAdmin ? '<button id="btn-skip-draw" class="btn-secondary" style="margin-top:12px; font-size:0.8rem; padding:4px 12px;">Skip Animation</button>' : ''}
+        <p style="color:var(--color-text-secondary); font-size:0.85rem; margin-top:8px;">Teams are being assigned sequentially. Please wait or click skip.</p>
+        <button id="btn-skip-draw" class="btn-secondary" style="margin-top:12px; font-size:0.8rem; padding:4px 12px;">Skip Animation</button>
       </div>
     `;
   } else {
@@ -348,7 +354,7 @@ function renderDraw() {
       <div style="text-align:center; margin-bottom: 32px; background:rgba(0, 230, 118, 0.1); padding:20px; border-radius:16px; border:1px solid var(--accent-emerald);">
         <h3 style="color:var(--accent-emerald); font-family:var(--font-display); font-size:1.4rem; margin-bottom:8px;">🏆 DRAW COMPLETED</h3>
         <p style="color:var(--color-text-secondary); font-size:0.9rem; margin-bottom: 16px;">Groups A to H have been successfully populated with 4 balanced seed teams each.</p>
-        ${!hasFixtures ? (isAdmin ? '<button id="btn-gen-fixtures" class="btn-primary"><i data-lucide="calendar"></i> Generate Fixtures Calendar</button>' : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>') : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>'}
+        ${!hasFixtures ? '<button id="btn-gen-fixtures" class="btn-primary"><i data-lucide="calendar"></i> Generate Fixtures Calendar</button>' : '<a href="#groups" class="btn-secondary">View Standings & Matches</a>'}
       </div>
     `;
   }
@@ -393,7 +399,7 @@ function renderDraw() {
         const teamIds = state.groups[gLetter] || [];
         return `
           <div class="glass-card group-draw-box">
-            <div class="group-draw-header">GROUP ${gLetter}</div>
+            <div class="group-draw-header">${getGroupName(gLetter, state).toUpperCase()}</div>
             <div>
               ${teamIds.map((tId, idx) => {
                 const team = state.teams.find(t => t.id === tId);
@@ -429,7 +435,7 @@ function renderDraw() {
       currentDrawManager = new GroupDrawManager(
         state,
         (updatedState, team, groupLetter) => {
-          showToast(`Drawing ${team.flag} ${team.name} into Group ${groupLetter}!`);
+          showToast(`Drawing ${team.flag} ${team.name} into ${getGroupName(groupLetter, state)}!`);
           renderDraw();
         },
         (completedState) => {
@@ -498,6 +504,8 @@ function renderGroups() {
 
   const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   
+  const isLoggedIn = localStorage.getItem('efootball_admin_logged_in') === 'true';
+
   // Tab Bar HTML
   const tabsHTML = `
     <div style="display:flex; overflow-x:auto; gap:6px; background:var(--bg-secondary); padding:6px; border-radius:12px; margin-bottom:24px; border:1px solid var(--glass-border);">
@@ -506,7 +514,7 @@ function renderGroups() {
           flex:1; border:none; padding:10px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-family:var(--font-display); transition:var(--transition-smooth);
           background: ${g === activeGroupTab ? 'var(--accent-emerald)' : 'transparent'};
           color: ${g === activeGroupTab ? 'var(--bg-primary)' : 'var(--color-text-secondary)'};
-        ">GROUP ${g}</button>
+        ">${getGroupName(g, state).toUpperCase()}</button>
       `).join('')}
     </div>
   `;
@@ -532,10 +540,20 @@ function renderGroups() {
       <tr class="${classHighlight}">
         <td style="font-weight:bold; text-align:center;">${idx + 1}</td>
         <td>
-          <a href="#team-profile?id=${row.teamId}" style="display:flex; align-items:center; gap:10px; font-weight:600;">
-            <span style="font-size:1.3rem;">${team ? team.flag : ''}</span>
-            <span>${team ? team.name : row.teamId}</span>
-          </a>
+          <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px;">
+            <a href="#team-profile?id=${row.teamId}" style="display:flex; align-items:center; gap:10px; font-weight:600;">
+              <span style="font-size:1.3rem;">${team ? team.flag : ''}</span>
+              <div>
+                <span style="font-size:0.9rem; display:block; color:var(--color-text-primary);">${team ? team.name : row.teamId}</span>
+                ${team && team.owner ? `<span style="font-size:0.75rem; color:var(--accent-gold); font-weight:normal; display:block;">Owner: ${team.owner}</span>` : ''}
+              </div>
+            </a>
+            ${isLoggedIn ? `
+              <button class="btn-edit-team-name-group" data-id="${row.teamId}" title="Edit Team & Owner" style="background:transparent; border:1px solid rgba(255,179,0,0.3); color:var(--accent-gold); cursor:pointer; padding:2px 6px; border-radius:4px; font-size:0.7rem; display:flex; align-items:center; gap:4px;">
+                <i data-lucide="edit-2" style="width:12px; height:12px;"></i> Edit
+              </button>
+            ` : ''}
+          </div>
         </td>
         <td style="text-align:center; font-weight:500;">${row.played}</td>
         <td style="text-align:center; color:var(--accent-emerald);">${row.won}</td>
@@ -578,10 +596,8 @@ function renderGroups() {
         
         <div style="grid-column: 1 / -1; display:flex; justify-content:center; gap:10px; margin-top:8px; border-top:1px solid rgba(255,255,255,0.02); padding-top:8px;">
           <a href="#match-center?id=${m.id}" style="font-size:0.75rem; color:var(--accent-emerald);">Details</a>
-          ${isAdminLoggedIn() ? `
-            <span style="color:var(--color-text-muted); font-size:0.75rem;">|</span>
-            <a href="#admin?match=${m.id}" style="font-size:0.75rem; color:var(--accent-gold);">Result</a>
-          ` : ''}
+          <span style="color:var(--color-text-muted); font-size:0.75rem;">|</span>
+          <a href="#admin?match=${m.id}" style="font-size:0.75rem; color:var(--accent-gold);">Result</a>
         </div>
       </div>
     `;
@@ -593,10 +609,10 @@ function renderGroups() {
     </h2>
     ${tabsHTML}
     
-    <div class="responsive-split-grid">
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px; align-items:start;">
       <!-- Standings Table -->
       <div class="glass-card" style="padding:16px;">
-        <h3 style="margin-bottom:16px; color:var(--accent-gold); font-family:var(--font-display);">Group ${activeGroupTab} Standings</h3>
+        <h3 style="margin-bottom:16px; color:var(--accent-gold); font-family:var(--font-display);">${getGroupName(activeGroupTab, state)} Standings</h3>
         <div class="table-container">
           <table class="standings-table">
             <thead>
@@ -623,7 +639,7 @@ function renderGroups() {
 
       <!-- Fixtures list -->
       <div>
-        <h3 style="margin-bottom:16px; font-family:var(--font-display);">Group ${activeGroupTab} Fixtures</h3>
+        <h3 style="margin-bottom:16px; font-family:var(--font-display);">${getGroupName(activeGroupTab, state)} Fixtures</h3>
         <div style="display:flex; flex-direction:column; gap:12px;">
           ${matchesHTML}
         </div>
@@ -638,6 +654,30 @@ function renderGroups() {
       activeGroupTab = e.currentTarget.getAttribute('data-group');
       renderGroups();
     });
+  });
+
+  // Attach click listeners for inline team & owner name editing by Admin
+  const btnEditTeamButtons = document.querySelectorAll('.btn-edit-team-name-group');
+  btnEditTeamButtons.forEach(btn => {
+    btn.onclick = () => {
+      const teamId = btn.getAttribute('data-id');
+      const team = state.teams.find(t => t.id === teamId);
+      if (!team) return;
+
+      const newTeamName = prompt(`Edit Team Name for "${team.name}":`, team.name);
+      if (newTeamName === null) return;
+
+      const newOwnerName = prompt(`Edit Owner Name for "${newTeamName || team.name}":`, team.owner || '');
+      if (newOwnerName === null) return;
+
+      const oldName = team.name;
+      team.name = newTeamName.trim() || team.name;
+      team.owner = newOwnerName.trim();
+
+      saveState(state);
+      showToast(`Updated "${team.name}" (Owner: ${team.owner || 'None'}) across all views & database!`, "success");
+      renderGroups();
+    };
   });
 
   lucide.createIcons();
@@ -689,7 +729,7 @@ function renderFixtures() {
       <div class="glass-card" style="display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:8px;">
           <span style="font-weight:700; color:var(--accent-gold); font-size:0.8rem;">MATCH #${m.id.replace('M', '')}</span>
-          <span style="font-size:0.75rem; background:rgba(0,230,118,0.1); color:var(--accent-emerald); padding:2px 8px; border-radius:10px; font-weight:600;">Group ${m.group}</span>
+          <span style="font-size:0.75rem; background:rgba(0,230,118,0.1); color:var(--accent-emerald); padding:2px 8px; border-radius:10px; font-weight:600;">${getGroupName(m.group, state)}</span>
         </div>
         
         <div class="match-card" style="padding:10px 0;">
@@ -713,7 +753,7 @@ function renderFixtures() {
           <span>🏟️ ${m.stadium}</span>
           <div style="display:flex; gap:12px;">
             <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald); font-weight:600;">Match Details</a>
-            ${isAdminLoggedIn() ? `<a href="#admin?match=${m.id}" style="color:var(--accent-gold); font-weight:600;">Enter Result</a>` : ''}
+            <a href="#admin?match=${m.id}" style="color:var(--accent-gold); font-weight:600;">Enter Result</a>
           </div>
         </div>
       </div>
@@ -770,7 +810,7 @@ function renderResults() {
         <div class="glass-card result-item-card" data-team-h="${homeTeam ? homeTeam.name.toLowerCase() : ''}" data-team-a="${awayTeam ? awayTeam.name.toLowerCase() : ''}" style="display:flex; flex-direction:column; gap:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:6px;">
             <span style="font-size:0.75rem; color:var(--accent-gold); font-weight:700;">MATCH #${m.id.replace('M','')}</span>
-            <span style="font-size:0.75rem; color:var(--color-text-secondary);">${m.stage === 'group' ? 'Group ' + m.group : m.stage.toUpperCase()}</span>
+            <span style="font-size:0.75rem; color:var(--color-text-secondary);">${m.stage === 'group' ? getGroupName(m.group, state) : m.stage.toUpperCase()}</span>
           </div>
           
           <div style="display:flex; align-items:center; justify-content:space-between; text-align:center; padding:8px 0;">
@@ -940,7 +980,7 @@ function renderMatchCenter(params) {
       <div style="display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:8px;">
         ${isLive ? '<span class="badge-live"><span class="live-dot"></span> LIVE</span>' : ''}
         ${isCompleted ? '<span style="font-size:0.75rem; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:4px; font-weight:700;">FULL TIME</span>' : ''}
-        <span style="font-size:0.8rem; color:var(--color-text-secondary);">${match.stage === 'group' ? 'Group ' + match.group : match.stage.toUpperCase()}</span>
+        <span style="font-size:0.8rem; color:var(--color-text-secondary);">${match.stage === 'group' ? getGroupName(match.group, state) : match.stage.toUpperCase()}</span>
       </div>
 
       <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr; align-items:center; gap:20px; margin: 16px 0;">
@@ -1017,14 +1057,14 @@ function renderKnockout() {
   let displayMatches = state.matches;
   if (isPreview) {
     displayMatches = [
-      { id: 'M49', homeTeamId: 'Group A Winner', awayTeamId: 'Group B Runner-up', status: 'scheduled', time: '14:00' },
-      { id: 'M50', homeTeamId: 'Group C Winner', awayTeamId: 'Group D Runner-up', status: 'scheduled', time: '17:00' },
-      { id: 'M51', homeTeamId: 'Group E Winner', awayTeamId: 'Group F Runner-up', status: 'scheduled', time: '20:00' },
-      { id: 'M52', homeTeamId: 'Group G Winner', awayTeamId: 'Group H Runner-up', status: 'scheduled', time: '23:00' },
-      { id: 'M53', homeTeamId: 'Group B Winner', awayTeamId: 'Group A Runner-up', status: 'scheduled', time: '14:00' },
-      { id: 'M54', homeTeamId: 'Group D Winner', awayTeamId: 'Group C Runner-up', status: 'scheduled', time: '17:00' },
-      { id: 'M55', homeTeamId: 'Group F Winner', awayTeamId: 'Group E Runner-up', status: 'scheduled', time: '20:00' },
-      { id: 'M56', homeTeamId: 'Group H Winner', awayTeamId: 'Group G Runner-up', status: 'scheduled', time: '23:00' },
+      { id: 'M49', homeTeamId: `${getGroupName('A', state)} Winner`, awayTeamId: `${getGroupName('B', state)} Runner-up`, status: 'scheduled', time: '14:00' },
+      { id: 'M50', homeTeamId: `${getGroupName('C', state)} Winner`, awayTeamId: `${getGroupName('D', state)} Runner-up`, status: 'scheduled', time: '17:00' },
+      { id: 'M51', homeTeamId: `${getGroupName('E', state)} Winner`, awayTeamId: `${getGroupName('F', state)} Runner-up`, status: 'scheduled', time: '20:00' },
+      { id: 'M52', homeTeamId: `${getGroupName('G', state)} Winner`, awayTeamId: `${getGroupName('H', state)} Runner-up`, status: 'scheduled', time: '23:00' },
+      { id: 'M53', homeTeamId: `${getGroupName('B', state)} Winner`, awayTeamId: `${getGroupName('A', state)} Runner-up`, status: 'scheduled', time: '14:00' },
+      { id: 'M54', homeTeamId: `${getGroupName('D', state)} Winner`, awayTeamId: `${getGroupName('C', state)} Runner-up`, status: 'scheduled', time: '17:00' },
+      { id: 'M55', homeTeamId: `${getGroupName('F', state)} Winner`, awayTeamId: `${getGroupName('E', state)} Runner-up`, status: 'scheduled', time: '20:00' },
+      { id: 'M56', homeTeamId: `${getGroupName('H', state)} Winner`, awayTeamId: `${getGroupName('G', state)} Runner-up`, status: 'scheduled', time: '23:00' },
       
       { id: 'M57', homeTeamId: 'Winner Match 49', awayTeamId: 'Winner Match 50', status: 'scheduled', time: '16:00' },
       { id: 'M58', homeTeamId: 'Winner Match 51', awayTeamId: 'Winner Match 52', status: 'scheduled', time: '21:00' },
@@ -1055,7 +1095,7 @@ function renderKnockout() {
     const isTied = isDone && m.homeScore === m.awayScore;
     
     const homeIsWinner = isDone && (m.homeScore > m.awayScore || (isTied && m.homePenalties > m.awayPenalties));
-    const awayIsWinner = isDone && (m.awayScore > m.homeScore || (isTied && m.awayPenalties > m.homePenalties));
+    const awayIsWinner = isDone && (m.awayScore > m.homeScore || (isTied && m.awayPenalties > m.awayPenalties));
 
     return `
       <div class="bracket-match" data-match-id="${m.id}" style="${isPreview ? 'opacity: 0.8; border-style: dashed;' : ''}">
@@ -1093,7 +1133,7 @@ function renderKnockout() {
           <!-- Links -->
           <div style="display:flex; justify-content:space-between; font-size:0.7rem; border-top:1px solid rgba(255,255,255,0.02); padding: 4px 10px; background:rgba(0,0,0,0.1);">
             <a href="#match-center?id=${m.id}" style="color:var(--accent-emerald);">Details</a>
-            ${isAdminLoggedIn() ? `<a href="#admin?match=${m.id}" style="color:var(--accent-gold);">Result</a>` : ''}
+            <a href="#admin?match=${m.id}" style="color:var(--accent-gold);">Result</a>
           </div>
         ` : ''}
       </div>
@@ -1310,10 +1350,11 @@ function renderTeamProfile(params) {
   if (team.group) {
     const standings = getGroupStandings(state, team.group);
     const posIdx = standings.findIndex(row => row.teamId === team.id);
-    groupRankHTML = posIdx !== -1 ? `#${posIdx + 1} in Group ${team.group}` : `Group ${team.group}`;
+    groupRankHTML = posIdx !== -1 ? `#${posIdx + 1} in ${getGroupName(team.group, state)}` : getGroupName(team.group, state);
   }
 
-  const isEditingTeam = params.editTeam === 'true' && state.status === 'pre-draw';
+  const isLoggedIn = localStorage.getItem('efootball_admin_logged_in') === 'true';
+  const isEditingTeam = params.editTeam === 'true' && isLoggedIn;
   
   // Team Matches list
   const teamMatches = state.matches.filter(m => m.homeTeamId === team.id || m.awayTeamId === team.id);
@@ -1341,7 +1382,7 @@ function renderTeamProfile(params) {
           <div style="display:flex; align-items:center; gap:8px;">
             <span>${opponent ? opponent.flag : ''}</span>
             <span style="font-weight:600;">vs ${opponent ? opponent.name : opponentId}</span>
-            <span style="font-size:0.7rem; color:var(--color-text-secondary);">(${m.stage === 'group' ? 'Group ' + m.group : m.stage.toUpperCase()})</span>
+            <span style="font-size:0.7rem; color:var(--color-text-secondary);">(${m.stage === 'group' ? getGroupName(m.group, state) : m.stage.toUpperCase()})</span>
           </div>
           <div style="display:flex; align-items:center; gap:12px;">
             ${isDone ? `<span style="font-weight:bold;">${m.homeScore} - ${m.awayScore}</span>` : `<span style="color:var(--color-text-muted);">${m.time}</span>`}
@@ -1399,19 +1440,25 @@ function renderTeamProfile(params) {
     <!-- Profile Header card -->
     ${isEditingTeam ? `
       <div class="glass-card" style="padding:32px; background:linear-gradient(135deg, rgba(22,27,51,0.8), rgba(5,7,15,0.9)); margin-bottom:24px;">
-        <div style="max-width:500px;">
-          <h3 style="color:var(--accent-gold); font-family:var(--font-display); margin-bottom:20px;">Edit Team Identity</h3>
-          <div style="display:flex; gap:16px; margin-bottom:20px;">
-            <div style="width:80px;">
-              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Flag</label>
-              <input type="text" id="edit-team-flag" value="${team.flag}" required style="
-                width:100%; text-align:center; font-size:1.8rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:8px; color:var(--color-text-primary); outline:none;
+        <div style="max-width:600px;">
+          <h3 style="color:var(--accent-gold); font-family:var(--font-display); margin-bottom:20px;">Edit Team Identity & Owner</h3>
+          <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:20px;">
+            <div style="width:70px;">
+              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Badge</label>
+              <input type="text" id="edit-team-flag" value="${team.flag || '⚽'}" required style="
+                width:100%; text-align:center; font-size:1.5rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:6px; border-radius:8px; color:var(--color-text-primary); outline:none;
               ">
             </div>
-            <div style="flex:1;">
+            <div style="flex:1; min-width:180px;">
               <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Team Name</label>
               <input type="text" id="edit-team-name" value="${team.name}" required style="
-                width:100%; font-size:1.1rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:10px 12px; border-radius:8px; color:var(--color-text-primary); outline:none; font-weight:600;
+                width:100%; font-size:1rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px 12px; border-radius:8px; color:var(--color-text-primary); outline:none; font-weight:600;
+              ">
+            </div>
+            <div style="flex:1; min-width:180px;">
+              <label style="font-size:0.75rem; text-transform:uppercase; color:var(--color-text-secondary); font-weight:600; display:block; margin-bottom:6px;">Owner Name</label>
+              <input type="text" id="edit-team-owner" value="${team.owner || ''}" placeholder="e.g. Sahitya" style="
+                width:100%; font-size:1rem; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px 12px; border-radius:8px; color:var(--color-text-primary); outline:none; font-weight:600;
               ">
             </div>
           </div>
@@ -1428,6 +1475,7 @@ function renderTeamProfile(params) {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
             <div>
               <h2 style="font-family:var(--font-display); font-size:2.2rem; margin-bottom:4px; margin-top:0;">${team.name}</h2>
+              ${team.owner ? `<div style="font-size:1rem; color:var(--accent-gold); font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:6px;">👤 Owner: ${team.owner}</div>` : ''}
               <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.85rem; color:var(--color-text-secondary); margin-bottom:12px;">
                 <span>Group: <b>${team.group || 'Unassigned'}</b></span>
                 <span>Rank: <b>${groupRankHTML}</b></span>
@@ -1437,7 +1485,7 @@ function renderTeamProfile(params) {
                 <span>Team Rating: <b>${team.squad && team.squad[5] ? team.squad[5].rating : 85} OVR</b></span>
               </div>
             </div>
-            ${state.status === 'pre-draw' && isAdminLoggedIn() ? `
+            ${isLoggedIn ? `
               <a href="#team-profile?id=${team.id}&editTeam=true" class="btn-primary" style="font-size:0.8rem; padding:6px 12px; display:flex; align-items:center; gap:6px;"><i data-lucide="edit"></i> Edit Identity</a>
             ` : ''}
           </div>
@@ -1446,7 +1494,7 @@ function renderTeamProfile(params) {
     `}
 
     <!-- Stats and Fixtures lists -->
-    <div class="responsive-split-grid">
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px; align-items:start;">
       
       <!-- Team Statistics Grid -->
       <div class="glass-card" style="padding:24px;">
@@ -1526,13 +1574,10 @@ function renderTeamProfile(params) {
     const btnSaveTeam = document.getElementById('btn-save-team-details');
     if (btnSaveTeam) {
       btnSaveTeam.onclick = () => {
-        const newFlag = document.getElementById('edit-team-flag').value.trim();
+        const newFlag = document.getElementById('edit-team-flag').value.trim() || '⚽';
         const newName = document.getElementById('edit-team-name').value.trim();
+        const newOwner = document.getElementById('edit-team-owner').value.trim();
         
-        if (!newFlag) {
-          showToast("Flag emoji cannot be empty", "error");
-          return;
-        }
         if (!newName) {
           showToast("Team name cannot be empty", "error");
           return;
@@ -1540,9 +1585,10 @@ function renderTeamProfile(params) {
         
         team.flag = newFlag;
         team.name = newName;
+        team.owner = newOwner;
         
         saveState(state);
-        showToast("Team details updated successfully!", "success");
+        showToast("Team and Owner details updated successfully!", "success");
         router.navigate('team-profile', { id: team.id });
         router.handleRouting();
       };
@@ -1971,7 +2017,7 @@ function renderAdmin(params) {
           </span>
           <span>${aName} ${aFlag}</span>
         </div>
-        <span style="font-size:0.75rem; color:var(--color-text-secondary); margin:0 16px;">${m.stage === 'group' ? 'Group ' + m.group : m.stage.toUpperCase()}</span>
+        <span style="font-size:0.75rem; color:var(--color-text-secondary); margin:0 16px;">${m.stage === 'group' ? getGroupName(m.group, state) : m.stage.toUpperCase()}</span>
         <a href="#admin?match=${m.id}" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">Edit Score</a>
       </div>
     `;
@@ -1999,47 +2045,97 @@ function renderAdmin(params) {
     </div>
   `;
 
-  // Get list of teams in pre-draw phase
-  let registeredTeamsListHTML = '';
-  if (state.status === 'pre-draw') {
-    const teamsListHTML = state.teams.map(t => {
-      const ovrRating = t.squad && t.squad[5] ? t.squad[5].rating : (t.rating || 80);
-      return `
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:6px; margin-bottom:8px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:1.2rem;">${t.flag}</span>
-            <span style="font-weight:600; font-size:0.85rem;">${t.name}</span>
-            <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:1px 6px; border-radius:10px;">${ovrRating} OVR</span>
-          </div>
-          <button class="btn-delete-team" data-id="${t.id}" style="background:transparent; border:none; color:var(--accent-red); cursor:pointer; display:flex; align-items:center; padding:4px;">
-            <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
-          </button>
+  // Registered Teams list with Admin Edit & Delete options
+  const teamsListHTML = state.teams.map(t => {
+    const ovrRating = t.squad && t.squad[5] ? t.squad[5].rating : (t.rating || 80);
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:6px; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:1.2rem;">${t.flag}</span>
+          <span style="font-weight:600; font-size:0.85rem;">${t.name}</span>
+          ${t.owner ? `<span style="font-size:0.75rem; color:var(--accent-gold); font-weight:500;">(Owner: ${t.owner})</span>` : '<span style="font-size:0.75rem; color:var(--color-text-muted);">(No Owner)</span>'}
+          <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:1px 6px; border-radius:10px;">${ovrRating} OVR</span>
         </div>
-      `;
-    }).join('');
-
-    registeredTeamsListHTML = `
-      <div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
-        <h4 style="margin-bottom:10px; color:var(--color-text-primary); font-size:0.9rem;">Registered Teams (${state.teams.length}/32)</h4>
-        ${state.teams.length === 0 
-          ? '<p style="font-size:0.8rem; color:var(--color-text-muted); text-align:center; padding:10px 0;">No teams registered yet. Use the form above to add teams.</p>'
-          : `<div style="display:grid; grid-template-columns: 1fr; gap:0px; max-height:220px; overflow-y:auto; padding-right:4px;">${teamsListHTML}</div>`
-        }
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="btn-admin-edit-team" data-id="${t.id}" title="Edit Team Name & Owner" style="background:transparent; border:1px solid rgba(255,179,0,0.3); color:var(--accent-gold); cursor:pointer; padding:3px 8px; border-radius:4px; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
+            <i data-lucide="edit-2" style="width:12px; height:12px;"></i> Edit
+          </button>
+          ${state.status === 'pre-draw' ? `
+            <button class="btn-delete-team" data-id="${t.id}" title="Delete Team" style="background:transparent; border:none; color:var(--accent-red); cursor:pointer; display:flex; align-items:center; padding:4px;">
+              <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+            </button>
+          ` : ''}
+        </div>
       </div>
     `;
-  }
+  }).join('');
+
+  const registeredTeamsListHTML = `
+    <div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px;">
+      <h4 style="margin-bottom:10px; color:var(--color-text-primary); font-size:0.9rem;">Registered Teams & Owners (${state.teams.length}/32)</h4>
+      ${state.teams.length === 0 
+        ? '<p style="font-size:0.8rem; color:var(--color-text-muted); text-align:center; padding:10px 0;">No teams registered yet. Use the form above to add teams.</p>'
+        : `<div style="display:grid; grid-template-columns: 1fr; gap:0px; max-height:260px; overflow-y:auto; padding-right:4px;">${teamsListHTML}</div>`
+      }
+    </div>
+  `;
+
+  // Firebase connection monitor card
+  const fbStatusCardHTML = `
+    <div class="glass-card" style="margin-bottom:24px; border:1px solid ${firebaseStatus.connected ? 'rgba(0,230,118,0.3)' : 'rgba(255,61,0,0.3)'};">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0; color:${firebaseStatus.connected ? 'var(--accent-emerald)' : 'var(--accent-red)'}; font-family:var(--font-display); display:flex; align-items:center; gap:8px;">
+          <span style="${firebaseStatus.connected ? 'background:var(--accent-emerald); width:10px; height:10px; border-radius:50%; display:inline-block; box-shadow:0 0 8px var(--accent-emerald);' : 'background:var(--accent-red); width:10px; height:10px; border-radius:50%; display:inline-block;'}"></span>
+          ${firebaseStatus.connected ? 'Firebase Database Connected (Real-Time Active)' : 'Firebase Database Disconnected / Error'}
+        </h3>
+      </div>
+      
+      ${firebaseStatus.connected ? `
+        <p style="font-size:0.8rem; color:var(--color-text-secondary); margin:0;">
+          🟢 All team data, match scores, and standings sync live to cloud storage permanently. Last synced: <b>${firebaseStatus.lastSync || 'Just now'}</b>.
+        </p>
+      ` : `
+        <div style="background:rgba(255,61,0,0.06); padding:12px; border-radius:8px; border:1px solid rgba(255,61,0,0.15);">
+          <div style="font-size:0.85rem; font-weight:700; color:var(--accent-red); margin-bottom:4px;">Error Details / Connection Status:</div>
+          <div style="font-size:0.8rem; color:var(--color-text-primary); font-family:monospace; margin-bottom:8px;">
+            ${firebaseStatus.error || 'Firestore not connected. Check Firebase configuration below.'}
+          </div>
+          <div style="font-size:0.75rem; color:var(--color-text-secondary); line-height:1.4;">
+            <b>Quick Setup Instructions for Real-Time Storage:</b><br>
+            1. Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent-gold); text-decoration:underline;">Firebase Console</a> and open your project.<br>
+            2. Under Build menu, click <b>Firestore Database</b> -> Click <b>Create Database</b>.<br>
+            3. In Rules tab, set: <code>allow read, write: if true;</code> and click <b>Publish</b>.<br>
+            4. Click "Save & Connect" in the configuration form below to connect!
+          </div>
+        </div>
+      `}
+    </div>
+  `;
+
+  const isFull = state.teams.length >= 32;
+  const isPreDraw = state.status === 'pre-draw';
 
   // Custom team list form and roster editor
   const customTeamsListHTML = `
     <div class="glass-card" style="margin-bottom:24px;">
-      <h3 style="margin-bottom:12px; color:var(--accent-emerald); font-family:var(--font-display);">Register Custom Team</h3>
-      <p style="font-size:0.8rem; color:var(--color-text-secondary); margin-bottom:16px;">Add custom national esports teams. Roster stats will generate automatically based on FIFA overall ratings. Available only in Pre-Draw phase.</p>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0; color:var(--accent-emerald); font-family:var(--font-display);">Register Custom Team</h3>
+        ${state.teams.length > 0 && isPreDraw ? `
+          <button id="btn-clear-placeholder-teams" class="btn-secondary" style="font-size:0.75rem; padding:4px 10px; color:var(--accent-red); border-color:rgba(255, 61, 0, 0.3); display:flex; align-items:center; gap:4px;">
+            <i data-lucide="trash-2" style="width:12px; height:12px;"></i> Clear All Teams (${state.teams.length}/32)
+          </button>
+        ` : ''}
+      </div>
+      
+      <p style="font-size:0.8rem; color:var(--color-text-secondary); margin-bottom:16px;">
+        ${isFull ? '⚠️ 32/32 Teams are currently registered (Maximum capacity reached). Click "Clear All Teams" above or delete individual teams below to enable adding new custom teams.' : 'Add custom team & owner details. Available in Pre-Draw phase.'}
+      </p>
       
       <form id="form-add-team" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
-        <input type="text" id="add-team-name" placeholder="Team Name (e.g. India)" required style="flex:2; min-width:180px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
-        <input type="text" id="add-team-flag" placeholder="Flag Emoji (e.g. 🇮🇳)" required style="width:120px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
-        <input type="number" id="add-team-rating" placeholder="OVR Ovr (60-99)" min="60" max="99" required style="width:120px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
-        <button type="submit" class="btn-primary" ${state.status !== 'pre-draw' ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} style="font-size:0.85rem; padding:8px 16px;">Add Team</button>
+        <input type="text" id="add-team-name" placeholder="Team Name (e.g. India)" required style="flex:1; min-width:140px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        <input type="text" id="add-team-owner" placeholder="Owner Name (e.g. Sahitya)" style="flex:1; min-width:140px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        <input type="number" id="add-team-rating" placeholder="OVR Rating (60-99)" min="60" max="99" required style="width:130px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        <button type="submit" class="btn-primary" ${!isPreDraw || isFull ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} style="font-size:0.85rem; padding:8px 16px;">Add Team</button>
       </form>
 
       ${registeredTeamsListHTML}
@@ -2059,7 +2155,7 @@ function renderAdmin(params) {
     <!-- Dynamic Edit matching score sub-panel -->
     ${matchEditPanelHTML}
 
-    <div class="responsive-split-grid-admin">
+    <div style="display:grid; grid-template-columns: 1.8fr 1.2fr; gap:24px; align-items:start;">
       
       <!-- List of Matches -->
       <div>
@@ -2115,6 +2211,14 @@ function renderAdmin(params) {
             </div>
           </div>
         ` : ''}
+
+
+
+        <!-- Firebase status monitor -->
+        ${fbStatusCardHTML}
+
+        <!-- Firebase config Form -->
+        ${fbConfigHTML}
 
         <!-- Custom team Form -->
         ${customTeamsListHTML}
@@ -2233,24 +2337,85 @@ function renderAdmin(params) {
     };
   }
 
+  // Clear all teams to allow adding custom teams from scratch
+  const btnClearPlaceholder = document.getElementById('btn-clear-placeholder-teams');
+  if (btnClearPlaceholder) {
+    btnClearPlaceholder.onclick = () => {
+      if (confirm(`Are you sure you want to clear all ${state.teams.length} teams so you can add your custom teams?`)) {
+        state.teams = [];
+        state.status = 'pre-draw';
+        state.groups = { A: [], B: [], C: [], D: [], E: [], F: [], G: [], H: [] };
+        state.drawState.pots = { 1: [], 2: [], 3: [], 4: [] };
+        saveState(state);
+        showToast("All teams cleared! The 'Add Team' form is now unlocked.", "success");
+        renderAdmin(params);
+      }
+    };
+  }
+
   // Register Custom Team
   const formAddTeam = document.getElementById('form-add-team');
   if (formAddTeam) {
     formAddTeam.onsubmit = (e) => {
       e.preventDefault();
       const name = document.getElementById('add-team-name').value.trim();
-      const flag = document.getElementById('add-team-flag').value.trim();
+      const ownerEl = document.getElementById('add-team-owner');
+      const owner = ownerEl ? ownerEl.value.trim() : '';
       const rating = document.getElementById('add-team-rating').value;
 
       try {
-        const team = addCustomTeam(state, name, flag, rating);
-        showToast(`Team ${team.flag} ${team.name} registered successfully!`, 'success');
+        const team = addCustomTeam(state, name, owner, '⚽', rating);
+        showToast(`Team "${team.name}" ${team.owner ? '(Owner: ' + team.owner + ')' : ''} registered successfully!`, 'success');
         renderAdmin(params);
       } catch (err) {
         showToast(err.message, 'error');
       }
     };
   }
+
+  // Admin Edit Team Name & Owner Name
+  const btnAdminEditTeams = document.querySelectorAll('.btn-admin-edit-team');
+  btnAdminEditTeams.forEach(btn => {
+    btn.onclick = () => {
+      const teamId = btn.getAttribute('data-id');
+      const team = state.teams.find(t => t.id === teamId);
+      if (!team) return;
+
+      const newTeamName = prompt(`Admin Edit: Enter new Team Name for "${team.name}":`, team.name);
+      if (newTeamName === null) return;
+
+      const newOwnerName = prompt(`Admin Edit: Enter new Owner Name for "${newTeamName || team.name}":`, team.owner || '');
+      if (newOwnerName === null) return;
+
+      const oldName = team.name;
+      team.name = newTeamName.trim() || team.name;
+      team.owner = newOwnerName.trim();
+
+      saveState(state);
+      showToast(`Admin updated Team: "${team.name}" (Owner: ${team.owner || 'None'}) in database!`, "success");
+      renderAdmin(params);
+    };
+  });
+
+  // Admin Delete Team
+  const btnDeleteTeams = document.querySelectorAll('.btn-delete-team');
+  btnDeleteTeams.forEach(btn => {
+    btn.onclick = () => {
+      const teamId = btn.getAttribute('data-id');
+      const team = state.teams.find(t => t.id === teamId);
+      if (!team) return;
+
+      if (confirm(`Delete team "${team.name}" from tournament?`)) {
+        try {
+          removeTeamFromState(state, teamId);
+          showToast(`Team "${team.name}" deleted.`, "success");
+          renderAdmin(params);
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      }
+    };
+  });
 
   // Esports Fixture Simulation bindings
   const btnSimGroups = document.getElementById('btn-sim-groups');
@@ -2295,26 +2460,6 @@ function renderAdmin(params) {
       }
     };
   }
-
-  // Attach delete buttons for teams
-  const btnDeleteTeams = document.querySelectorAll('.btn-delete-team');
-  btnDeleteTeams.forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.getAttribute('data-id');
-      const teamToDelete = state.teams.find(t => t.id === id);
-      const flag = teamToDelete ? teamToDelete.flag : '';
-      const name = teamToDelete ? teamToDelete.name : id;
-      if (confirm(`Are you sure you want to remove ${flag} ${name} from the tournament?`)) {
-        try {
-          removeTeamFromState(state, id);
-          showToast(`Team ${name} removed.`, 'success');
-          renderAdmin(params);
-        } catch (err) {
-          showToast(err.message, 'error');
-        }
-      }
-    };
-  });
 
   const btnExport = document.getElementById('btn-export-data');
   if (btnExport) {

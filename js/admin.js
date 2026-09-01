@@ -1,6 +1,6 @@
 // js/admin.js - Admin & Tournament Management Logic
 
-import { saveState, createDefaultState, getGroupStandings } from './database.js';
+import { saveState, createDefaultState } from './database.js';
 import { generateGroupMatches, generateKnockoutMatches, updateKnockoutProgression } from './scheduler.js';
 
 // Reset tournament to pre-draw state
@@ -40,9 +40,9 @@ export function editMatchSchedule(state, matchId, date, time, stadium) {
 }
 
 // Add a new custom team
-export function addCustomTeam(state, name, flag, ratingValue) {
-  if (state.teams.length >= 32) {
-    throw new Error('Tournament cannot exceed 32 teams.');
+export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue = 80) {
+  if (state.teams.length >= 32 && state.status !== 'pre-draw') {
+    throw new Error('Tournament cannot exceed 32 teams after draw has commenced.');
   }
 
   const rating = parseInt(ratingValue, 10) || 80;
@@ -65,8 +65,9 @@ export function addCustomTeam(state, name, flag, ratingValue) {
 
   const newTeam = {
     id,
-    name,
-    flag: flag || '🏳️',
+    name: name.trim(),
+    owner: (owner || '').trim(),
+    flag: flag || '⚽',
     logo: 'generic',
     group: '',
     squad
@@ -92,20 +93,30 @@ export function removeTeamFromState(state, teamId) {
 }
 
 // Rebuild seed pots based on team ratings
-function rebuildPots(state) {
-  // Sort teams by squad average rating
-  const getTeamRating = t => t.squad && t.squad.length > 0 ? Math.round(t.squad.reduce((s, p) => s + p.rating, 0) / t.squad.length) : 80;
-  const sorted = [...state.teams].sort((a, b) => getTeamRating(b) - getTeamRating(a));
+export function rebuildPots(state) {
+  // Deduplicate teams by ID to ensure unique entries
+  const uniqueTeamsMap = new Map();
+  (state.teams || []).forEach(t => {
+    if (t && t.id && !uniqueTeamsMap.has(t.id)) {
+      uniqueTeamsMap.set(t.id, t);
+    }
+  });
+  state.teams = Array.from(uniqueTeamsMap.values());
+
+  // Sort teams by rating
+  const sorted = [...state.teams].sort((a, b) => {
+    const rA = a.squad && a.squad[5] ? a.squad[5].rating : (a.rating || 80);
+    const rB = b.squad && b.squad[5] ? b.squad[5].rating : (b.rating || 80);
+    return rB - rA;
+  });
   
   // Re-populate Pots 1 to 4
   const potSize = Math.ceil(sorted.length / 4) || 8;
   state.drawState.pots = { 1: [], 2: [], 3: [], 4: [] };
   
   sorted.forEach((team, idx) => {
-    const pot = Math.floor(idx / potSize) + 1;
-    if (pot <= 4) {
-      state.drawState.pots[pot].push(team.id);
-    }
+    const pot = Math.min(4, Math.floor(idx / potSize) + 1);
+    state.drawState.pots[pot].push(team.id);
   });
 }
 
@@ -209,9 +220,6 @@ export function enterMatchResult(
       // Tie breaker using penalty shootouts
       const pHome = parseInt(homePenalties, 10) || 0;
       const pAway = parseInt(awayPenalties, 10) || 0;
-      if (pHome === pAway) {
-        throw new Error("Penalty shootout cannot end in a draw. One team must win.");
-      }
       if (pHome > pAway) {
         winnerId = match.homeTeamId;
         loserId = match.awayTeamId;
@@ -249,21 +257,23 @@ function checkGroupStageCompletion(state) {
     state.status = 'knockouts';
     
     // Recalculate standings for all groups
-    const standings = {};
-    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    letters.forEach(g => {
-      standings[g] = getGroupStandings(state, g);
-    });
+    import('./database.js').then(({ getGroupStandings }) => {
+      const standings = {};
+      const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      letters.forEach(g => {
+        standings[g] = getGroupStandings(state, g);
+      });
 
-    // Generate the Round of 16 matches
-    const updatedMatches = generateKnockoutMatches(state, standings);
-    state.matches = updatedMatches;
+      // Generate the Round of 16 matches
+      const updatedMatches = generateKnockoutMatches(state, standings);
+      state.matches = updatedMatches;
+      saveState(state);
+    });
   } else {
     // If not all matches are completed but fixtures were generated, state is 'group-stage'
     state.status = 'group-stage';
   }
 }
-
 
 // Simulate a single match with realistic scoring/events
 export function simulateMatch(state, match) {
