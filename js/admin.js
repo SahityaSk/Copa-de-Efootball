@@ -40,7 +40,7 @@ export function editMatchSchedule(state, matchId, date, time, stadium) {
 }
 
 // Add a new custom team
-export function addCustomTeam(state, name, flag, ratingValue) {
+export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue = 80) {
   if (state.teams.length >= 32 && state.status !== 'pre-draw') {
     throw new Error('Tournament cannot exceed 32 teams after draw has commenced.');
   }
@@ -65,8 +65,9 @@ export function addCustomTeam(state, name, flag, ratingValue) {
 
   const newTeam = {
     id,
-    name,
-    flag: flag || '🏳️',
+    name: name.trim(),
+    owner: (owner || '').trim(),
+    flag: flag || '⚽',
     logo: 'generic',
     group: '',
     squad
@@ -92,19 +93,30 @@ export function removeTeamFromState(state, teamId) {
 }
 
 // Rebuild seed pots based on team ratings
-function rebuildPots(state) {
+export function rebuildPots(state) {
+  // Deduplicate teams by ID to ensure unique entries
+  const uniqueTeamsMap = new Map();
+  (state.teams || []).forEach(t => {
+    if (t && t.id && !uniqueTeamsMap.has(t.id)) {
+      uniqueTeamsMap.set(t.id, t);
+    }
+  });
+  state.teams = Array.from(uniqueTeamsMap.values());
+
   // Sort teams by rating
-  const sorted = [...state.teams].sort((a, b) => b.squad[5].rating - a.squad[5].rating);
+  const sorted = [...state.teams].sort((a, b) => {
+    const rA = a.squad && a.squad[5] ? a.squad[5].rating : (a.rating || 80);
+    const rB = b.squad && b.squad[5] ? b.squad[5].rating : (b.rating || 80);
+    return rB - rA;
+  });
   
   // Re-populate Pots 1 to 4
   const potSize = Math.ceil(sorted.length / 4) || 8;
   state.drawState.pots = { 1: [], 2: [], 3: [], 4: [] };
   
   sorted.forEach((team, idx) => {
-    const pot = Math.floor(idx / potSize) + 1;
-    if (pot <= 4) {
-      state.drawState.pots[pot].push(team.id);
-    }
+    const pot = Math.min(4, Math.floor(idx / potSize) + 1);
+    state.drawState.pots[pot].push(team.id);
   });
 }
 

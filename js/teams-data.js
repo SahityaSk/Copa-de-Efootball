@@ -33,7 +33,8 @@ export function getInitialTeams() {
     return {
       id,
       name,
-      flag: '🏳️',
+      owner: '',
+      flag: '⚽',
       logo: 'generic',
       group: '',
       squad: createSquadForTeam(id, name, rating)

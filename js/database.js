@@ -24,6 +24,12 @@ const DEFAULT_FIREBASE_CONFIG = {
   measurementId: "G-6B8C57F1DV"
 };
 
+// Standard group name helper
+export function getGroupName(groupLetter) {
+  if (!groupLetter) return '';
+  return `Group ${groupLetter}`;
+}
+
 // Load Firebase configuration from localStorage, falling back to default configuration
 export function getFirebaseConfig() {
   const config = localStorage.getItem(FIREBASE_CONFIG_KEY);
@@ -41,6 +47,12 @@ export function saveFirebaseConfig(config) {
   }
   localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(config));
 }
+
+export let firebaseStatus = {
+  connected: false,
+  error: null,
+  lastSync: null
+};
 
 // Initialize Firebase if config exists
 export function initFirebase(config, onStateUpdate) {
@@ -61,6 +73,8 @@ export function initFirebase(config, onStateUpdate) {
     firebaseApp = null;
     docFn = null;
     setDocFn = null;
+    firebaseStatus.connected = false;
+    firebaseStatus.error = "No Firebase configuration supplied";
     return Promise.resolve(false);
   }
 
@@ -79,6 +93,10 @@ export function initFirebase(config, onStateUpdate) {
       // Setup real-time listener for tournament state
       const docRef = docFn(db, 'tournaments', 'efootball_2026');
       unsubscribeFirebase = onSnapshot(docRef, async (docSnap) => {
+        firebaseStatus.connected = true;
+        firebaseStatus.error = null;
+        firebaseStatus.lastSync = new Date().toLocaleTimeString();
+
         if (docSnap.exists()) {
           const remoteState = docSnap.data();
           saveStateToLocal(remoteState);
@@ -97,6 +115,8 @@ export function initFirebase(config, onStateUpdate) {
         }
       }, (error) => {
         console.warn("Firebase snapshot error, falling back to LocalStorage:", error);
+        firebaseStatus.connected = false;
+        firebaseStatus.error = error ? (error.message || error.toString()) : "Firebase connection rejected";
         if (!firstSnapshotProcessed) {
           firstSnapshotProcessed = true;
           resolve(false);
@@ -126,6 +146,8 @@ export function initFirebase(config, onStateUpdate) {
 
     } catch (err) {
       console.error("Failed to initialize Firebase:", err);
+      firebaseStatus.connected = false;
+      firebaseStatus.error = err ? (err.message || err.toString()) : "Failed to initialize Firebase SDK";
       db = null;
       firebaseApp = null;
       docFn = null;
@@ -139,7 +161,11 @@ export function initFirebase(config, onStateUpdate) {
 function getLocalState() {
   const raw = localStorage.getItem(STATE_LOCAL_KEY);
   if (raw) {
-    return JSON.parse(raw);
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error("Failed to parse local state:", e);
+    }
   }
   return createDefaultState();
 }
@@ -180,13 +206,15 @@ export function createDefaultState() {
 export async function saveState(state) {
   // Recalculate standings, player stats, etc. to keep everything in sync
   const updatedState = recalculateStatsAndStandings(state);
-  
+
   saveStateToLocal(updatedState);
 
   if (db && docFn && setDocFn) {
     try {
       const docRef = docFn(db, 'tournaments', 'efootball_2026');
-      await setDocFn(docRef, updatedState);
+      // Clean undefined values to prevent Firestore unsupported field errors
+      const cleanState = JSON.parse(JSON.stringify(updatedState));
+      await setDocFn(docRef, cleanState);
     } catch (err) {
       console.error("Firebase save failed, local state updated:", err);
     }
