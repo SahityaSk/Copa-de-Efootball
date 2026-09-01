@@ -46,14 +46,14 @@ export class GroupDrawManager {
     const y = this.savedScrollY;
 
     // Restore immediately
-    window.scrollTo(x, y);
+    window.scrollTo({ left: x, top: y, behavior: 'instant' });
 
     // Restore after DOM rendering
     requestAnimationFrame(() => {
       window.scrollTo({
         left: x,
         top: y,
-        behavior: 'auto'
+        behavior: 'instant'
       });
 
       // Extra frame protection for DOM/layout changes
@@ -61,7 +61,7 @@ export class GroupDrawManager {
         window.scrollTo({
           left: x,
           top: y,
-          behavior: 'auto'
+          behavior: 'instant'
         });
       });
     });

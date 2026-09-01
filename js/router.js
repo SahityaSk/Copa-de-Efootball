@@ -39,6 +39,9 @@ export class Router {
     const route = routePath.replace('#', '');
     const renderFunc = this.routes[route] || this.routes['dashboard'];
 
+    const isNewRoute = this.currentRoute !== route;
+    this.currentRoute = route;
+
     // Select the page elements
     const allPages = document.querySelectorAll(`.${this.containerClass}`);
     const activePage = document.getElementById(`${route}-section`) || document.getElementById('dashboard-section');
@@ -60,8 +63,10 @@ export class Router {
       activePage.style.opacity = '1';
       activePage.style.pointerEvents = 'auto';
 
-      // Scroll window to top on navigation
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll window to top ONLY on actual route change
+      if (isNewRoute) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
 
       // Run page render callback
       if (renderFunc) {
