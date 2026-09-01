@@ -213,12 +213,6 @@ export class GroupDrawManager {
       : null;
 
     // ----------------------------------------------------------
-    // Save current scroll position BEFORE changing the state
-    // ----------------------------------------------------------
-
-    this.saveScrollPosition();
-
-    // ----------------------------------------------------------
     // Add to draw history
     // ----------------------------------------------------------
 
@@ -280,12 +274,6 @@ export class GroupDrawManager {
         step.groupLetter
       );
     }
-
-    // ----------------------------------------------------------
-    // Restore scroll AFTER UI update
-    // ----------------------------------------------------------
-
-    this.restoreScrollPosition();
 
     // ----------------------------------------------------------
     // Schedule next team
