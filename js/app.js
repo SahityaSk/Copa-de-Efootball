@@ -400,6 +400,9 @@ function initCountdown() {
 // 2. GROUP DRAW PAGE RENDERER
 // ----------------------------------------------------
 function renderDraw() {
+  const currentScrollX = window.scrollX || window.pageXOffset || 0;
+  const currentScrollY = window.scrollY || window.pageYOffset || 0;
+
   const state = getState();
   const container = document.getElementById('draw-section');
   const loggedIn = isAdminLoggedIn();
@@ -586,6 +589,7 @@ function renderDraw() {
   }
 
   lucide.createIcons();
+  window.scrollTo({ left: currentScrollX, top: currentScrollY, behavior: 'instant' });
 }
 
 // ----------------------------------------------------
