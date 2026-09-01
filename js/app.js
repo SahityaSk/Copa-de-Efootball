@@ -659,7 +659,7 @@ function renderGroups() {
   // Attach click listeners for inline team & owner name editing by Admin
   const btnEditTeamButtons = document.querySelectorAll('.btn-edit-team-name-group');
   btnEditTeamButtons.forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       const teamId = btn.getAttribute('data-id');
       const team = state.teams.find(t => t.id === teamId);
       if (!team) return;
@@ -671,11 +671,25 @@ function renderGroups() {
       if (newOwnerName === null) return;
 
       const oldName = team.name;
-      team.name = newTeamName.trim() || team.name;
-      team.owner = newOwnerName.trim();
+      const cleanTeamName = newTeamName.trim() || team.name;
+      const cleanOwnerName = newOwnerName.trim();
 
-      saveState(state);
-      showToast(`Updated "${team.name}" (Owner: ${team.owner || 'None'}) across all views & database!`, "success");
+      team.name = cleanTeamName;
+      team.owner = cleanOwnerName;
+      if (team.squad) {
+        team.squad.forEach((p, idx) => {
+          if (!p.name || p.name.includes(oldName)) {
+            p.name = `${cleanTeamName} Player ${idx + 1}`;
+          }
+        });
+      }
+
+      await saveState(state);
+      if (firebaseStatus.error) {
+        showToast(`Saved locally, but Firebase notice: ${firebaseStatus.error}`, "error");
+      } else {
+        showToast(`Updated "${team.name}" (Owner: ${team.owner || 'None'}) in Firebase & database!`, "success");
+      }
       renderGroups();
     };
   });
@@ -1573,7 +1587,7 @@ function renderTeamProfile(params) {
   if (isEditingTeam) {
     const btnSaveTeam = document.getElementById('btn-save-team-details');
     if (btnSaveTeam) {
-      btnSaveTeam.onclick = () => {
+      btnSaveTeam.onclick = async () => {
         const newFlag = document.getElementById('edit-team-flag').value.trim() || '⚽';
         const newName = document.getElementById('edit-team-name').value.trim();
         const newOwner = document.getElementById('edit-team-owner').value.trim();
@@ -1583,12 +1597,25 @@ function renderTeamProfile(params) {
           return;
         }
         
+        const oldName = team.name;
         team.flag = newFlag;
         team.name = newName;
         team.owner = newOwner;
+
+        if (team.squad) {
+          team.squad.forEach((p, idx) => {
+            if (!p.name || p.name.includes(oldName)) {
+              p.name = `${newName} Player ${idx + 1}`;
+            }
+          });
+        }
         
-        saveState(state);
-        showToast("Team and Owner details updated successfully!", "success");
+        await saveState(state);
+        if (firebaseStatus.error) {
+          showToast(`Saved locally, but Firebase notice: ${firebaseStatus.error}`, "error");
+        } else {
+          showToast("Team and Owner details updated in Firebase Firestore!", "success");
+        }
         router.navigate('team-profile', { id: team.id });
         router.handleRouting();
       };
@@ -2384,7 +2411,7 @@ function renderAdmin(params) {
   // Admin Edit Team Name & Owner Name
   const btnAdminEditTeams = document.querySelectorAll('.btn-admin-edit-team');
   btnAdminEditTeams.forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       const teamId = btn.getAttribute('data-id');
       const team = state.teams.find(t => t.id === teamId);
       if (!team) return;
@@ -2396,11 +2423,25 @@ function renderAdmin(params) {
       if (newOwnerName === null) return;
 
       const oldName = team.name;
-      team.name = newTeamName.trim() || team.name;
-      team.owner = newOwnerName.trim();
+      const cleanTeamName = newTeamName.trim() || team.name;
+      const cleanOwnerName = newOwnerName.trim();
 
-      saveState(state);
-      showToast(`Admin updated Team: "${team.name}" (Owner: ${team.owner || 'None'}) in database!`, "success");
+      team.name = cleanTeamName;
+      team.owner = cleanOwnerName;
+      if (team.squad) {
+        team.squad.forEach((p, idx) => {
+          if (!p.name || p.name.includes(oldName)) {
+            p.name = `${cleanTeamName} Player ${idx + 1}`;
+          }
+        });
+      }
+
+      await saveState(state);
+      if (firebaseStatus.error) {
+        showToast(`Saved locally, but Firebase error: ${firebaseStatus.error}`, "error");
+      } else {
+        showToast(`Admin updated Team: "${team.name}" (Owner: ${team.owner || 'None'}) in Firebase!`, "success");
+      }
       renderAdmin(params);
     };
   });

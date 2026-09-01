@@ -215,14 +215,21 @@ export async function saveState(state) {
       // Clean undefined values to prevent Firestore unsupported field errors
       const cleanState = JSON.parse(JSON.stringify(updatedState));
       await setDocFn(docRef, cleanState);
+      firebaseStatus.connected = true;
+      firebaseStatus.error = null;
+      firebaseStatus.lastSync = new Date().toLocaleTimeString();
     } catch (err) {
       console.error("Firebase save failed, local state updated:", err);
+      firebaseStatus.connected = false;
+      firebaseStatus.error = err ? (err.message || err.toString()) : "Firestore write failed";
     }
   }
 
   if (stateChangeCallback) {
     stateChangeCallback(updatedState);
   }
+
+  return updatedState;
 }
 
 // Get admin accounts (initializing default admin/admin123 if empty)
