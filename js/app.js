@@ -365,8 +365,8 @@ function initCountdown() {
     clearInterval(countdownInterval);
   }
 
-  // Target Tournament Start Date: September 20, 2026 00:00:00
-  const targetDate = new Date('2026-09-20T00:00:00').getTime();
+  // Target Tournament Start Date: October 26, 2026 00:00:00
+  const targetDate = new Date('2026-10-26T00:00:00').getTime();
 
   function updateTimer() {
     const now = new Date().getTime();
