@@ -50,7 +50,7 @@ export function editMatchSchedule(state, matchId, date, time, stadium) {
 }
 
 // Add a new custom team
-export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue = 80) {
+export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue = 80, efootballUsername = '') {
   checkAdminAuth();
   if (state.teams.length >= 32 && state.status !== 'pre-draw') {
     throw new Error('Tournament cannot exceed 32 teams after draw has commenced.');
@@ -78,6 +78,8 @@ export function addCustomTeam(state, name, owner = '', flag = '⚽', ratingValue
     id,
     name: name.trim(),
     owner: (owner || '').trim(),
+    efootballUsername: (efootballUsername || '').trim(),
+    overall: Math.min(99, Math.max(60, rating)),
     flag: flag || '⚽',
     logo: 'generic',
     group: '',

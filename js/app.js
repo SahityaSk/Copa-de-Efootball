@@ -2220,13 +2220,14 @@ function renderAdmin(params) {
 
   // Registered Teams list with Admin Edit & Delete options
   const teamsListHTML = state.teams.map(t => {
-    const ovrRating = t.squad && t.squad[5] ? t.squad[5].rating : (t.rating || 80);
+    const ovrRating = t.overall || (t.squad && t.squad[5] ? t.squad[5].rating : (t.rating || 80));
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:6px; margin-bottom:8px;">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size:1.2rem;">${t.flag}</span>
           <span style="font-weight:600; font-size:0.85rem;">${t.name}</span>
           ${t.owner ? `<span style="font-size:0.75rem; color:var(--accent-gold); font-weight:500;">(Owner: ${t.owner})</span>` : '<span style="font-size:0.75rem; color:var(--color-text-muted);">(No Owner)</span>'}
+          ${t.efootballUsername ? `<span style="font-size:0.75rem; color:var(--color-text-secondary);">(${t.efootballUsername})</span>` : ''}
           <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:1px 6px; border-radius:10px;">${ovrRating} OVR</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
@@ -2304,10 +2305,19 @@ function renderAdmin(params) {
         ${isFull ? '⚠️ 32/32 Teams are currently registered (Maximum capacity reached). Click "Clear All Teams" above or delete individual teams below to enable adding new custom teams.' : 'Add custom team & owner details. Available in Pre-Draw phase.'}
       </p>
       
-      <form id="form-add-team" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
-        <input type="text" id="add-team-name" placeholder="Team Name (e.g. India)" required style="flex:1; min-width:140px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
-        <input type="text" id="add-team-owner" placeholder="Owner Name (e.g. Sahitya)" style="flex:1; min-width:140px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
-        <input type="number" id="add-team-rating" placeholder="OVR Rating (60-99)" min="60" max="99" required style="width:130px; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+      <form id="form-add-team" style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; align-items:center;">
+        <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">Team Owner Name
+          <input type="text" id="add-team-owner" placeholder="e.g. Sahitya" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">eFootball Team Name
+          <input type="text" id="add-team-name" placeholder="e.g. India" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">eFootball User Name
+          <input type="text" id="add-team-username" placeholder="Your eFootball username" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        </label>
+        <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">Team Overall
+          <input type="number" id="add-team-rating" placeholder="60–99" min="60" max="99" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        </label>
         <button type="submit" class="btn-primary" ${!isPreDraw || isFull ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} style="font-size:0.85rem; padding:8px 16px;">Add Team</button>
       </form>
 
@@ -2535,9 +2545,10 @@ function renderAdmin(params) {
       const ownerEl = document.getElementById('add-team-owner');
       const owner = ownerEl ? ownerEl.value.trim() : '';
       const rating = document.getElementById('add-team-rating').value;
+      const username = document.getElementById('add-team-username').value.trim();
 
       try {
-        const team = addCustomTeam(state, name, owner, '⚽', rating);
+        const team = addCustomTeam(state, name, owner, '⚽', rating, username);
         showToast(`Team "${team.name}" ${team.owner ? '(Owner: ' + team.owner + ')' : ''} registered successfully!`, 'success');
         renderAdmin(params);
       } catch (err) {

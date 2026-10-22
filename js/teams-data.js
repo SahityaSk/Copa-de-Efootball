@@ -34,6 +34,8 @@ export function getInitialTeams() {
       id,
       name,
       owner: '',
+      efootballUsername: '',
+      overall: rating,
       flag: '⚽',
       logo: 'generic',
       group: '',
