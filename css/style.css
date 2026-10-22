@@ -491,17 +491,41 @@ nav.mobile-nav {
 }
 
 .team-name-card {
+  display: block;
   font-size: 0.95rem;
 
   font-weight: 600;
 
-  max-width: 100px;
+  max-width: 100%;
 
   overflow: hidden;
 
   text-overflow: ellipsis;
 
   white-space: nowrap;
+}
+
+.team-identity-details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 7px;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.team-identity-details > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .score-area {
@@ -766,6 +790,11 @@ table.standings-table {
   gap: 8px;
 }
 
+.pot-item > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
 .pot-item.drawn {
   opacity: 0.3;
 
@@ -811,7 +840,7 @@ table.standings-table {
 
   justify-content: space-between;
 
-  align-items: center;
+  align-items: flex-start;
 
   padding: 8px 12px;
 

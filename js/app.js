@@ -178,7 +178,7 @@ function getTeamName(teamId, state) {
 function renderTeamIdentityDetails(team) {
   if (!team) return '';
   const overall = team.overall || (team.squad && team.squad[5] ? team.squad[5].rating : (team.rating || 80));
-  return `<span style="display:block; margin-top:3px; color:var(--color-text-secondary); font-size:0.7rem; line-height:1.45;">Owner: ${team.owner || 'Not set'} · eFootball ID: ${team.efootballUsername || 'Not set'} · Overall: ${overall}</span>`;
+  return `<span class="team-identity-details"><span>${team.owner || '—'}</span><span>${team.efootballUsername || '—'}</span><span>${overall}</span></span>`;
 }
 
 // ----------------------------------------------------
@@ -1238,7 +1238,7 @@ function renderKnockout() {
         <div class="bracket-team-row ${homeIsWinner ? 'winner' : ''}">
           <span style="display:flex; align-items:center; gap:6px;">
             <span>${hFlag}</span>
-            <span title="${homeTeam ? `${homeTeam.owner || 'Owner not set'} · ${homeTeam.efootballUsername || 'ID not set'} · OVR ${homeTeam.overall || 80}` : ''}" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!homeTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${hName}</span>
+            <span style="text-overflow:ellipsis; overflow:hidden; white-space:normal; max-width:150px; ${!homeTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${hName}${renderTeamIdentityDetails(homeTeam)}</span>
           </span>
           <span class="bracket-score">
             ${isDone ? m.homeScore : ''}
@@ -1250,7 +1250,7 @@ function renderKnockout() {
         <div class="bracket-team-row ${awayIsWinner ? 'winner' : ''}" style="border:none;">
           <span style="display:flex; align-items:center; gap:6px;">
             <span>${aFlag}</span>
-            <span title="${awayTeam ? `${awayTeam.owner || 'Owner not set'} · ${awayTeam.efootballUsername || 'ID not set'} · OVR ${awayTeam.overall || 80}` : ''}" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!awayTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${aName}</span>
+            <span style="text-overflow:ellipsis; overflow:hidden; white-space:normal; max-width:150px; ${!awayTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${aName}${renderTeamIdentityDetails(awayTeam)}</span>
           </span>
           <span class="bracket-score">
             ${isDone ? m.awayScore : ''}
@@ -1424,7 +1424,6 @@ function renderTeams() {
         <span style="font-size:3rem; margin-bottom:8px; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.35));">${team.flag}</span>
         <h3 style="font-family:var(--font-display); font-size:1.15rem; margin-bottom:4px;">${team.name}</h3>
         ${renderTeamIdentityDetails(team)}
-        <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:2px 8px; border-radius:12px; margin:8px 0 12px;">OVR Rating: ${team.overall || (team.squad[5] && team.squad[5].rating) || 80}</span>
         
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; width:100%; border-top:1px solid rgba(255,255,255,0.03); padding-top:12px; font-size:0.75rem; color:var(--color-text-secondary);">
           <div>
@@ -1636,10 +1635,6 @@ function renderTeamProfile(params) {
               <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.85rem; color:var(--color-text-secondary); margin-bottom:12px;">
                 <span>Group: <b>${team.group || 'Unassigned'}</b></span>
                 <span>Rank: <b>${groupRankHTML}</b></span>
-              </div>
-              <div style="display:inline-flex; align-items:center; gap:8px; background:var(--bg-primary); padding:6px 12px; border-radius:20px; font-size:0.8rem; border:1px solid var(--glass-border);">
-                <span style="width:8px; height:8px; background:var(--accent-gold); border-radius:50%;"></span>
-                <span>Team Rating: <b>${team.overall || (team.squad && team.squad[5] ? team.squad[5].rating : 85)} OVR</b></span>
               </div>
             </div>
             ${isLoggedIn ? `
@@ -2233,12 +2228,9 @@ function renderAdmin(params) {
     const ovrRating = t.overall || (t.squad && t.squad[5] ? t.squad[5].rating : (t.rating || 80));
     return `
       <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:rgba(255,255,255,0.02); border:1px solid var(--glass-border); border-radius:6px; margin-bottom:8px;">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0;">
           <span style="font-size:1.2rem;">${t.flag}</span>
-          <span style="font-weight:600; font-size:0.85rem;">${t.name}</span>
-          ${t.owner ? `<span style="font-size:0.75rem; color:var(--accent-gold); font-weight:500;">(Owner: ${t.owner})</span>` : '<span style="font-size:0.75rem; color:var(--color-text-muted);">(No Owner)</span>'}
-          <span style="font-size:0.75rem; color:var(--color-text-secondary);">(eFootball ID: ${t.efootballUsername || 'Not set'})</span>
-          <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:1px 6px; border-radius:10px;">${ovrRating} OVR</span>
+          <div style="font-weight:600; font-size:0.85rem;">${t.name}${renderTeamIdentityDetails(t)}</div>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           <button class="btn-admin-edit-team" data-id="${t.id}" title="Edit Team Name & Owner" style="background:transparent; border:1px solid rgba(255,179,0,0.3); color:var(--accent-gold); cursor:pointer; padding:3px 8px; border-radius:4px; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
