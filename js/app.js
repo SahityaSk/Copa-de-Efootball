@@ -175,6 +175,12 @@ function getTeamName(teamId, state) {
   return teamId.replace(/Group ([A-H])/g, (_, letter) => getGroupName(letter, state));
 }
 
+function renderTeamIdentityDetails(team) {
+  if (!team) return '';
+  const overall = team.overall || (team.squad && team.squad[5] ? team.squad[5].rating : (team.rating || 80));
+  return `<span style="display:block; margin-top:3px; color:var(--color-text-secondary); font-size:0.7rem; line-height:1.45;">Owner: ${team.owner || 'Not set'} · eFootball ID: ${team.efootballUsername || 'Not set'} · Overall: ${overall}</span>`;
+}
+
 // ----------------------------------------------------
 // 1. DASHBOARD PAGE RENDERER
 // ----------------------------------------------------
@@ -199,7 +205,7 @@ function renderDashboard() {
         <div class="match-card">
           <div class="team-info-card">
             <span class="flag-avatar">${homeTeam ? homeTeam.flag : '🏳️'}</span>
-            <span class="team-name-card">${homeTeam ? homeTeam.name : nextMatch.homeTeamId}</span>
+            <span class="team-name-card" style="white-space:normal;">${homeTeam ? homeTeam.name : nextMatch.homeTeamId}${renderTeamIdentityDetails(homeTeam)}</span>
           </div>
           <div class="score-area">
             <div class="vs-badge">VS</div>
@@ -207,7 +213,7 @@ function renderDashboard() {
           </div>
           <div class="team-info-card">
             <span class="flag-avatar">${awayTeam ? awayTeam.flag : '🏳️'}</span>
-            <span class="team-name-card">${awayTeam ? awayTeam.name : nextMatch.awayTeamId}</span>
+            <span class="team-name-card" style="white-space:normal;">${awayTeam ? awayTeam.name : nextMatch.awayTeamId}${renderTeamIdentityDetails(awayTeam)}</span>
           </div>
         </div>
         <div style="text-align:center; margin-top: 16px;">
@@ -486,8 +492,7 @@ function renderDraw() {
                   return `
                     <div class="pot-item ${isAlreadyDrawn ? 'drawn' : ''}">
                       <span>${team ? team.flag : ''}</span>
-                      <span style="font-weight:600;">${team ? team.name : tId}</span>
-                      <span style="margin-left:auto; font-size:0.75rem; color:var(--color-text-secondary);">${team ? team.squad[5].rating : ''} OVR</span>
+                      <span style="font-weight:600;">${team ? team.name : tId}${renderTeamIdentityDetails(team)}</span>
                     </div>
                   `;
                 }).join('')}
@@ -515,7 +520,7 @@ function renderDraw() {
                 return `
                   <div class="group-draw-team">
                     <span style="font-size:0.8rem; color:var(--color-text-secondary); font-weight:bold;">${idx + 1}</span>
-                    <span style="margin-left:8px;">${team ? team.flag : ''} ${team ? team.name : tId}</span>
+                    <span style="margin-left:8px; flex:1;">${team ? team.flag : ''} ${team ? team.name : tId}${renderTeamIdentityDetails(team)}</span>
                     <span style="margin-left:auto; font-size:0.75rem; background:var(--bg-tertiary); padding: 2px 6px; border-radius:4px;">Pot ${idx + 1}</span>
                   </div>
                 `;
@@ -655,7 +660,7 @@ function renderGroups() {
               <span style="font-size:1.3rem;">${team ? team.flag : ''}</span>
               <div>
                 <span style="font-size:0.9rem; display:block; color:var(--color-text-primary);">${team ? team.name : row.teamId}</span>
-                ${team && team.owner ? `<span style="font-size:0.75rem; color:var(--accent-gold); font-weight:normal; display:block;">Owner: ${team.owner}</span>` : ''}
+                ${renderTeamIdentityDetails(team)}
               </div>
             </a>
             ${isLoggedIn ? `
@@ -689,7 +694,7 @@ function renderGroups() {
       <div class="glass-card" style="padding:16px; border-radius:12px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; text-align:center; gap:8px;">
         <div style="display:flex; align-items:center; gap:10px; text-align:left;">
           <span style="font-size:1.8rem;">${homeTeam ? homeTeam.flag : ''}</span>
-          <span style="font-weight:600; font-size:0.9rem;">${homeTeam ? homeTeam.name : m.homeTeamId}</span>
+              <span style="font-weight:600; font-size:0.9rem;">${homeTeam ? homeTeam.name : m.homeTeamId}${renderTeamIdentityDetails(homeTeam)}</span>
         </div>
         
         <div>
@@ -700,7 +705,7 @@ function renderGroups() {
         </div>
 
         <div style="display:flex; align-items:center; gap:10px; justify-content:flex-end; text-align:right;">
-          <span style="font-weight:600; font-size:0.9rem;">${awayTeam ? awayTeam.name : m.awayTeamId}</span>
+              <span style="font-weight:600; font-size:0.9rem;">${awayTeam ? awayTeam.name : m.awayTeamId}${renderTeamIdentityDetails(awayTeam)}</span>
           <span style="font-size:1.8rem;">${awayTeam ? awayTeam.flag : ''}</span>
         </div>
         
@@ -859,7 +864,7 @@ function renderFixtures() {
         <div class="match-card" style="padding:10px 0;">
           <div class="team-info-card">
             <span class="flag-avatar">${homeTeam ? homeTeam.flag : ''}</span>
-            <span class="team-name-card" style="font-size:0.85rem;">${homeTeam ? homeTeam.name : m.homeTeamId}</span>
+            <span class="team-name-card" style="font-size:0.85rem; white-space:normal;">${homeTeam ? homeTeam.name : m.homeTeamId}${renderTeamIdentityDetails(homeTeam)}</span>
           </div>
           <div class="score-area">
             <div class="score-digits" style="font-size:1.5rem;">
@@ -869,7 +874,7 @@ function renderFixtures() {
           </div>
           <div class="team-info-card">
             <span class="flag-avatar">${awayTeam ? awayTeam.flag : ''}</span>
-            <span class="team-name-card" style="font-size:0.85rem;">${awayTeam ? awayTeam.name : m.awayTeamId}</span>
+            <span class="team-name-card" style="font-size:0.85rem; white-space:normal;">${awayTeam ? awayTeam.name : m.awayTeamId}${renderTeamIdentityDetails(awayTeam)}</span>
           </div>
         </div>
 
@@ -940,7 +945,7 @@ function renderResults() {
           <div style="display:flex; align-items:center; justify-content:space-between; text-align:center; padding:8px 0;">
             <div style="display:flex; align-items:center; gap:8px; width:40%; text-align:left;">
               <span style="font-size:1.8rem;">${homeTeam ? homeTeam.flag : ''}</span>
-              <span style="font-weight:600; font-size:0.85rem;">${homeTeam ? homeTeam.name : m.homeTeamId}</span>
+              <span style="font-weight:600; font-size:0.85rem;">${homeTeam ? homeTeam.name : m.homeTeamId}${renderTeamIdentityDetails(homeTeam)}</span>
             </div>
             
             <div style="background:var(--bg-primary); padding:6px 14px; border-radius:8px; font-family:var(--font-display); font-size:1.3rem; font-weight:800; width:20%;">
@@ -949,7 +954,7 @@ function renderResults() {
             </div>
 
             <div style="display:flex; align-items:center; gap:8px; width:40%; justify-content:flex-end; text-align:right;">
-              <span style="font-weight:600; font-size:0.85rem;">${awayTeam ? awayTeam.name : m.awayTeamId}</span>
+              <span style="font-weight:600; font-size:0.85rem;">${awayTeam ? awayTeam.name : m.awayTeamId}${renderTeamIdentityDetails(awayTeam)}</span>
               <span style="font-size:1.8rem;">${awayTeam ? awayTeam.flag : ''}</span>
             </div>
           </div>
@@ -1110,7 +1115,7 @@ function renderMatchCenter(params) {
       <div style="display:grid; grid-template-columns: 1.5fr 1fr 1.5fr; align-items:center; gap:20px; margin: 16px 0;">
         <div style="display:flex; flex-direction:column; align-items:center;">
           <span style="font-size:4rem; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.5));">${homeFlag}</span>
-          <h3 style="font-family:var(--font-display); font-size:1.6rem; margin-top:8px;">${homeName}</h3>
+          <h3 style="font-family:var(--font-display); font-size:1.6rem; margin-top:8px;">${homeName}${renderTeamIdentityDetails(homeTeam)}</h3>
         </div>
         
         <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
@@ -1126,7 +1131,7 @@ function renderMatchCenter(params) {
 
         <div style="display:flex; flex-direction:column; align-items:center;">
           <span style="font-size:4rem; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.5));">${awayFlag}</span>
-          <h3 style="font-family:var(--font-display); font-size:1.6rem; margin-top:8px;">${awayName}</h3>
+          <h3 style="font-family:var(--font-display); font-size:1.6rem; margin-top:8px;">${awayName}${renderTeamIdentityDetails(awayTeam)}</h3>
         </div>
       </div>
 
@@ -1233,7 +1238,7 @@ function renderKnockout() {
         <div class="bracket-team-row ${homeIsWinner ? 'winner' : ''}">
           <span style="display:flex; align-items:center; gap:6px;">
             <span>${hFlag}</span>
-            <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!homeTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${hName}</span>
+            <span title="${homeTeam ? `${homeTeam.owner || 'Owner not set'} · ${homeTeam.efootballUsername || 'ID not set'} · OVR ${homeTeam.overall || 80}` : ''}" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!homeTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${hName}</span>
           </span>
           <span class="bracket-score">
             ${isDone ? m.homeScore : ''}
@@ -1245,7 +1250,7 @@ function renderKnockout() {
         <div class="bracket-team-row ${awayIsWinner ? 'winner' : ''}" style="border:none;">
           <span style="display:flex; align-items:center; gap:6px;">
             <span>${aFlag}</span>
-            <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!awayTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${aName}</span>
+            <span title="${awayTeam ? `${awayTeam.owner || 'Owner not set'} · ${awayTeam.efootballUsername || 'ID not set'} · OVR ${awayTeam.overall || 80}` : ''}" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:120px; ${!awayTeam ? 'font-style: italic; color: var(--color-text-muted); font-size: 0.75rem;' : ''}">${aName}</span>
           </span>
           <span class="bracket-score">
             ${isDone ? m.awayScore : ''}
@@ -1418,7 +1423,8 @@ function renderTeams() {
       <a href="#team-profile?id=${team.id}" class="glass-card" style="display:flex; flex-direction:column; align-items:center; text-align:center; padding:20px;">
         <span style="font-size:3rem; margin-bottom:8px; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.35));">${team.flag}</span>
         <h3 style="font-family:var(--font-display); font-size:1.15rem; margin-bottom:4px;">${team.name}</h3>
-        <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:2px 8px; border-radius:12px; margin-bottom:12px;">OVR Rating: ${team.squad[5].rating}</span>
+        ${renderTeamIdentityDetails(team)}
+        <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:2px 8px; border-radius:12px; margin:8px 0 12px;">OVR Rating: ${team.overall || (team.squad[5] && team.squad[5].rating) || 80}</span>
         
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; width:100%; border-top:1px solid rgba(255,255,255,0.03); padding-top:12px; font-size:0.75rem; color:var(--color-text-secondary);">
           <div>
@@ -1626,14 +1632,14 @@ function renderTeamProfile(params) {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
             <div>
               <h2 style="font-family:var(--font-display); font-size:2.2rem; margin-bottom:4px; margin-top:0;">${team.name}</h2>
-              ${team.owner ? `<div style="font-size:1rem; color:var(--accent-gold); font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:6px;">👤 Owner: ${team.owner}</div>` : ''}
+              ${renderTeamIdentityDetails(team)}
               <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:0.85rem; color:var(--color-text-secondary); margin-bottom:12px;">
                 <span>Group: <b>${team.group || 'Unassigned'}</b></span>
                 <span>Rank: <b>${groupRankHTML}</b></span>
               </div>
               <div style="display:inline-flex; align-items:center; gap:8px; background:var(--bg-primary); padding:6px 12px; border-radius:20px; font-size:0.8rem; border:1px solid var(--glass-border);">
                 <span style="width:8px; height:8px; background:var(--accent-gold); border-radius:50%;"></span>
-                <span>Team Rating: <b>${team.squad && team.squad[5] ? team.squad[5].rating : 85} OVR</b></span>
+                <span>Team Rating: <b>${team.overall || (team.squad && team.squad[5] ? team.squad[5].rating : 85)} OVR</b></span>
               </div>
             </div>
             ${isLoggedIn ? `
@@ -1773,7 +1779,7 @@ function renderStatistics() {
   const teamAttackList = state.teams.map(t => {
     const gf = state.matches.filter(m => m.status === 'completed' && (m.homeTeamId === t.id || m.awayTeamId === t.id))
       .reduce((sum, m) => sum + (m.homeTeamId === t.id ? m.homeScore : m.awayScore), 0);
-    return { id: t.id, name: t.name, flag: t.flag, val: gf };
+    return { ...t, val: gf };
   }).sort((a,b) => b.val - a.val);
 
   const top1 = teamAttackList[0];
@@ -1795,6 +1801,7 @@ function renderStatistics() {
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; animation: scaleIn 0.8s forwards;">
               <span style="font-size:2.8rem; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));">${top2.flag}</span>
               <div style="font-weight:700; font-size:0.9rem; margin-top:8px; text-align:center; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:110px;">${top2.name}</div>
+              ${renderTeamIdentityDetails(top2)}
               <div style="color:var(--accent-emerald); font-weight:700; font-size:0.85rem; margin-bottom:8px;">${top2.val} Goals</div>
               <div style="width:100%; height:80px; background:linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border:1px solid rgba(255,255,255,0.15); border-radius:8px 8px 0 0; display:flex; justify-content:center; align-items:center; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
                 <span style="font-family:var(--font-display); font-size:2rem; font-weight:900; color:rgba(255,255,255,0.5);">2</span>
@@ -1808,6 +1815,7 @@ function renderStatistics() {
               <span style="font-size:3.5rem; filter:drop-shadow(0 6px 10px rgba(0,0,0,0.4)); animation: trophyBounce 2s infinite ease-in-out;">👑</span>
               <span style="font-size:3.5rem; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); margin-top:-15px;">${top1.flag}</span>
               <div style="font-weight:800; font-size:1.05rem; margin-top:8px; text-align:center; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:130px; color:var(--accent-gold);">${top1.name}</div>
+              ${renderTeamIdentityDetails(top1)}
               <div style="color:var(--accent-emerald); font-weight:800; font-size:0.95rem; margin-bottom:8px;">${top1.val} Goals</div>
               <div style="width:100%; height:120px; background:linear-gradient(180deg, rgba(255,179,0,0.2), rgba(255,179,0,0.05)); border:2px solid var(--accent-gold); border-radius:8px 8px 0 0; display:flex; justify-content:center; align-items:center; box-shadow: 0 4px 25px rgba(255,179,0,0.15);">
                 <span style="font-family:var(--font-display); font-size:2.5rem; font-weight:900; color:var(--accent-gold);">1</span>
@@ -1820,6 +1828,7 @@ function renderStatistics() {
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; animation: scaleIn 1s forwards;">
               <span style="font-size:2.8rem; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3));">${top3.flag}</span>
               <div style="font-weight:700; font-size:0.9rem; margin-top:8px; text-align:center; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:110px;">${top3.name}</div>
+              ${renderTeamIdentityDetails(top3)}
               <div style="color:var(--accent-emerald); font-weight:700; font-size:0.85rem; margin-bottom:8px;">${top3.val} Goals</div>
               <div style="width:100%; height:60px; background:linear-gradient(180deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05)); border:1px solid rgba(205,127,50,0.25); border-radius:8px 8px 0 0; display:flex; justify-content:center; align-items:center; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
                 <span style="font-family:var(--font-display); font-size:1.8rem; font-weight:900; color:rgba(205,127,50,0.5);">3</span>
@@ -1841,7 +1850,7 @@ function renderStatistics() {
         <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
           <span style="font-family:var(--font-display); font-weight:700; color:var(--accent-gold); width:24px;">#${idx + 1}</span>
           <span style="font-size:1.3rem;">${team.flag}</span>
-          <span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; flex:1; padding-right:10px;">${team.name}</span>
+          <span style="font-weight:600; flex:1; min-width:0; padding-right:10px;">${team.name}${renderTeamIdentityDetails(team)}</span>
         </div>
         <div style="display:flex; align-items:center; gap:16px; width:160px; justify-content:flex-end;">
           <div style="flex:1; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden; display:block;">
@@ -1932,7 +1941,7 @@ function renderFinal() {
       <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; max-width:600px; margin:0 auto 40px auto; gap:20px;">
         <div>
           <span style="font-size:5rem; filter:drop-shadow(0 6px 10px rgba(0,0,0,0.5));">${homeTeam ? homeTeam.flag : '🏳️'}</span>
-          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-top:8px;">${homeTeam ? homeTeam.name : finalMatch.homeTeamId}</h3>
+          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-top:8px;">${homeTeam ? homeTeam.name : finalMatch.homeTeamId}${renderTeamIdentityDetails(homeTeam)}</h3>
         </div>
         
         <div style="font-family:var(--font-display); font-size:3.5rem; font-weight:900; letter-spacing:2px;">
@@ -1942,7 +1951,7 @@ function renderFinal() {
 
         <div>
           <span style="font-size:5rem; filter:drop-shadow(0 6px 10px rgba(0,0,0,0.5));">${awayTeam ? awayTeam.flag : '🏳️'}</span>
-          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-top:8px;">${awayTeam ? awayTeam.name : finalMatch.awayTeamId}</h3>
+          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-top:8px;">${awayTeam ? awayTeam.name : finalMatch.awayTeamId}${renderTeamIdentityDetails(awayTeam)}</h3>
         </div>
       </div>
 
@@ -1952,6 +1961,7 @@ function renderFinal() {
           <div style="font-size:4rem; margin-bottom:12px; animation: trophyBounce 2s infinite ease-in-out;">🏆</div>
           <h2 style="font-family:var(--font-display); font-size:1.8rem; color:var(--accent-gold); letter-spacing:2px; text-transform:uppercase;">WORLD CHAMPION</h2>
           <h1 style="font-size:2.8rem; font-weight:900; margin:12px 0; text-shadow:0 0 20px rgba(255,179,0,0.3);">${winner.flag} ${winner.name}</h1>
+          ${renderTeamIdentityDetails(winner)}
           <p style="color:var(--color-text-secondary); font-size:0.9rem; max-width:400px; margin:0 auto 20px auto;">Congratulations to ${winner.name} for winning the esports Copa de eFootball 2026!</p>
           <button id="btn-fire-confetti" class="btn-primary" style="background:var(--accent-gold); color:var(--bg-primary);"><i data-lucide="sparkles"></i> Spark Confetti</button>
         </div>
@@ -2184,11 +2194,11 @@ function renderAdmin(params) {
       <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); padding:10px 16px; border-radius:8px; border:1px solid var(--glass-border); font-size:0.85rem;">
         <span style="font-weight:700; color:var(--accent-gold); width:70px;">MATCH #${m.id.replace('M','')}</span>
         <div style="flex:1; text-align:center; font-weight:600;">
-          <span>${hFlag} ${hName}</span>
+          <span title="${hTeam ? `${hTeam.owner || 'Owner not set'} · ${hTeam.efootballUsername || 'ID not set'} · OVR ${hTeam.overall || 80}` : ''}">${hFlag} ${hName}</span>
           <span style="background:var(--bg-primary); padding:2px 8px; border-radius:4px; margin:0 10px;">
             ${m.status === 'completed' ? `${m.homeScore} - ${m.awayScore}` : 'VS'}
           </span>
-          <span>${aName} ${aFlag}</span>
+          <span title="${aTeam ? `${aTeam.owner || 'Owner not set'} · ${aTeam.efootballUsername || 'ID not set'} · OVR ${aTeam.overall || 80}` : ''}">${aName} ${aFlag}</span>
         </div>
         <span style="font-size:0.75rem; color:var(--color-text-secondary); margin:0 16px;">${m.stage === 'group' ? getGroupName(m.group, state) : m.stage.toUpperCase()}</span>
         <a href="#admin?match=${m.id}" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">Edit Score</a>
@@ -2227,7 +2237,7 @@ function renderAdmin(params) {
           <span style="font-size:1.2rem;">${t.flag}</span>
           <span style="font-weight:600; font-size:0.85rem;">${t.name}</span>
           ${t.owner ? `<span style="font-size:0.75rem; color:var(--accent-gold); font-weight:500;">(Owner: ${t.owner})</span>` : '<span style="font-size:0.75rem; color:var(--color-text-muted);">(No Owner)</span>'}
-          ${t.efootballUsername ? `<span style="font-size:0.75rem; color:var(--color-text-secondary);">(${t.efootballUsername})</span>` : ''}
+          <span style="font-size:0.75rem; color:var(--color-text-secondary);">(eFootball ID: ${t.efootballUsername || 'Not set'})</span>
           <span style="font-size:0.75rem; color:var(--color-text-secondary); background:var(--bg-tertiary); padding:1px 6px; border-radius:10px;">${ovrRating} OVR</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
@@ -2312,8 +2322,8 @@ function renderAdmin(params) {
         <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">eFootball Team Name
           <input type="text" id="add-team-name" placeholder="e.g. India" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
         </label>
-        <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">eFootball User Name
-          <input type="text" id="add-team-username" placeholder="Your eFootball username" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
+        <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">eFootball User ID
+          <input type="text" id="add-team-username" placeholder="Your eFootball user ID" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
         </label>
         <label style="display:flex; flex-direction:column; gap:5px; color:var(--color-text-secondary); font-size:0.75rem;">Team Overall
           <input type="number" id="add-team-rating" placeholder="60–99" min="60" max="99" required style="width:100%; box-sizing:border-box; background:var(--bg-primary); border:1px solid var(--glass-border); padding:8px; border-radius:6px; color:var(--color-text-primary); outline:none; font-size:0.85rem;">
